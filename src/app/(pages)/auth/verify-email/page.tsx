@@ -5,8 +5,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirmSignUpMutation, useResendSignUpCodeMutation } from "@/redux/services/auth/auth";
 import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 
@@ -146,7 +145,7 @@ function VerifyEmailContent() {
           <div className="w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 my-6">
             <div className="lg:hidden mb-4 text-center">
               <Link href="/">
-                <Image src={Logo} alt="Xlya Logo" width={92} height={31} className="h-auto w-auto mx-auto" />
+                <Logo size="sm" className="mx-auto" />
               </Link>
             </div>
             
@@ -178,7 +177,7 @@ function VerifyEmailContent() {
           <div className="w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 my-6">
             <div className="lg:hidden mb-4 text-center">
               <Link href="/">
-                <Image src={Logo} alt="Xlya Logo" width={92} height={31} className="h-auto w-auto mx-auto" />
+                <Logo size="sm" className="mx-auto" />
               </Link>
             </div>
             
@@ -213,7 +212,7 @@ function VerifyEmailContent() {
           {/* Logo for mobile */}
           <div className="lg:hidden mb-4 text-center">
             <Link href="/">
-              <Image src={Logo} alt="Xlya Logo" width={92} height={31} className="h-auto w-auto mx-auto" />
+              <Logo size="sm" className="mx-auto" />
             </Link>
           </div>
 

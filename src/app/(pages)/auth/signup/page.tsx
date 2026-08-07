@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 import { useSignUpMutation } from "@/redux/services/auth/auth";
@@ -143,7 +142,7 @@ export default function SignupPage() {
           {/* Logo for mobile */}
           <div className="lg:hidden mb-4 text-center">
             <Link href="/">
-              <Image src={Logo} alt="Xlya Logo" width={92} height={31} className="h-auto w-auto mx-auto" />
+              <Logo size="sm" className="mx-auto" />
             </Link>
           </div>
 

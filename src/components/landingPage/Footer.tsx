@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -69,13 +68,7 @@ const Footer = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
             <div className="lg:col-span-2">
               <Link href="/" className="inline-block mb-4">
-                <Image 
-                  src={Logo}
-                  alt="Xalya Logo"
-                  width={150}
-                  height={50}
-                  className="h-auto w-auto"
-                />
+                <Logo size="md" />
               </Link>
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
                 Empowering businesses with innovative AI solutions to streamline operations and drive growth.

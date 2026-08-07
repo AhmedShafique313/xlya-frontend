@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -75,13 +74,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-8 shadow-2xl relative z-10">
         <div className="mb-8 text-center">
           <Link href="/">
-            <Image
-              src={Logo}
-              alt="Texalya Logo"
-              width={120}
-              height={40}
-              className="h-auto w-auto mx-auto"
-            />
+            <Logo size="sm" className="mx-auto" />
           </Link>
         </div>
 

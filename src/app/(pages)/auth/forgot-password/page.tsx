@@ -3,10 +3,10 @@
 import { useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
+import Button from "@/components/common/Button";
 import { useResetPasswordMutation, useConfirmResetPasswordMutation } from "@/redux/services/auth/auth";
 import { toast } from "@/components/snakbar";
 
@@ -36,7 +36,7 @@ function Card({ children }: { children: React.ReactNode }) {
     <div className="w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 my-6">
       <div className="lg:hidden mb-4 text-center">
         <Link href="/">
-          <Image src={Logo} alt="Xlya Logo" width={92} height={31} className="h-auto w-auto mx-auto" />
+          <Logo size="sm" className="mx-auto" />
         </Link>
       </div>
       {children}
@@ -227,13 +227,9 @@ function ForgotPasswordContent() {
                 {emailError && <p className="text-red-400 text-[0.72rem] mt-1">{emailError}</p>}
               </div>
 
-              <button
-                type="submit"
-                disabled={isSendingCode}
-                className="animate-button-gradient w-full bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-secondary)] text-black font-semibold py-2.5 rounded-lg hover:shadow-xl hover:shadow-[var(--gold-primary)]/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[0.78rem]"
-              >
+              <Button type="submit" disabled={isSendingCode} fullWidth>
                 {isSendingCode ? "Sending Code..." : "Send Reset Code"}
-              </button>
+              </Button>
             </form>
 
             <div className="mt-4 text-center">
@@ -293,13 +289,9 @@ function ForgotPasswordContent() {
                 </p>
               </div>
 
-              <button
-                type="submit"
-                disabled={otpDigits.join("").length !== 6}
-                className="animate-button-gradient w-full bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-secondary)] text-black font-semibold py-2.5 rounded-lg hover:shadow-xl hover:shadow-[var(--gold-primary)]/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[0.78rem]"
-              >
+              <Button type="submit" disabled={otpDigits.join("").length !== 6} fullWidth>
                 Verify Code
-              </button>
+              </Button>
             </form>
 
             <div className="mt-4 text-center space-y-2">
@@ -315,13 +307,9 @@ function ForgotPasswordContent() {
             </div>
 
             <div className="mt-3 text-center">
-              <button
-                type="button"
-                onClick={() => setStep("email")}
-                className="text-gray-400 text-[0.78rem] hover:text-[var(--gold-primary)] transition-colors"
-              >
+              <Button variant="ghost" type="button" onClick={() => setStep("email")}>
                 Back
-              </button>
+              </Button>
             </div>
           </Card>
         )}
@@ -418,23 +406,15 @@ function ForgotPasswordContent() {
                 <p className="text-red-400 text-[0.72rem]">{passwordError}</p>
               )}
 
-              <button
-                type="submit"
-                disabled={isResetting}
-                className="animate-button-gradient w-full bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-secondary)] text-black font-semibold py-2.5 rounded-lg hover:shadow-xl hover:shadow-[var(--gold-primary)]/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[0.78rem]"
-              >
+              <Button type="submit" disabled={isResetting} fullWidth>
                 {isResetting ? "Resetting Password..." : "Reset Password"}
-              </button>
+              </Button>
             </form>
 
             <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() => setStep("otp")}
-                className="text-gray-400 text-[0.78rem] hover:text-[var(--gold-primary)] transition-colors"
-              >
+              <Button variant="ghost" type="button" onClick={() => setStep("otp")}>
                 Back
-              </button>
+              </Button>
             </div>
           </Card>
         )}

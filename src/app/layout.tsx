@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { Fjalla_One } from "next/font/google";
 import "./globals.css";
 import ThemeProvider from "@/utils/theme-provider";
 import { Providers } from "@/redux/provider";
 import { AmplifyConfigProvider } from "@/components/providers/AmplifyConfigProvider";
 import { ToastProvider } from "@/components/snakbar";
+
+const fjallaOne = Fjalla_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-fjalla-one",
+});
 
 export const metadata: Metadata = {
   title: "Xlya",
@@ -16,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={fjallaOne.variable}>
       <body className="bg-black min-h-screen">
         <AmplifyConfigProvider>
           <ThemeProvider>

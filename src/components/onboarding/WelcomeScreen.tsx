@@ -1,5 +1,7 @@
 "use client";
 
+import GetStartedButton from "@/components/common/GetStartedButton";
+
 interface WelcomeScreenProps {
   onStart: () => void;
 }
@@ -33,12 +35,7 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       </p>
 
       {/* CTA Button */}
-      <button
-        onClick={onStart}
-        className="animate-button-gradient w-full max-w-xs text-black font-semibold py-3.5 px-8 rounded-xl hover:shadow-xl hover:shadow-[var(--gold-primary)]/25 transition-all duration-300 hover:scale-[1.02] text-sm sm:text-base"
-      >
-        Get Started
-      </button>
+      <GetStartedButton onClick={onStart} className="max-w-xs" />
 
       <p className="text-gray-600 text-xs mt-3">
         You can always update these preferences later in settings

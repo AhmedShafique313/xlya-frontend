@@ -1,13 +1,12 @@
 import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 
 export default function AuthFeaturesSidebar() {
   return (
     <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-14 relative z-10">
       <div className="mb-7">
         <Link href="/">
-          <Image src={Logo} alt="Texalya Logo" width={110} height={38} className="h-auto w-auto" />
+          <Logo size="lg" />
         </Link>
       </div>
 

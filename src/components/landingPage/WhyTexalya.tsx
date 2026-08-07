@@ -3,6 +3,7 @@
 import { Lightbulb, Settings, Rocket, Calendar, Users, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import GetStartedButton from "@/components/common/GetStartedButton";
 
 const WhyTexalya = () => {
     const [isVisible, setIsVisible] = useState(false);
@@ -190,9 +191,7 @@ const WhyTexalya = () => {
                     style={{ transitionDelay: isVisible ? "700ms" : "0ms" }}
                 >
                     <Link href="/auth/signup">
-                        <button className="animate-button-gradient text-white px-10 py-3.5 rounded-full text-sm lg:text-base font-semibold hover:scale-105 hover:shadow-2xl transition-all duration-300">
-                            Get Started Free
-                        </button>
+                        <GetStartedButton>Get Started Free</GetStartedButton>
                     </Link>
                 </div>
             </div>

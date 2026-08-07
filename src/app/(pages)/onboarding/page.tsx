@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import Logo from "@/assets/images/Logo4.png";
+import Logo from "@/components/common/Logo";
 import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import WelcomeScreen from "@/components/onboarding/WelcomeScreen";
 import ProgressBar from "@/components/onboarding/ProgressBar";
@@ -356,7 +355,7 @@ export default function OnboardingPage() {
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 flex-shrink-0">
         <Link href="/">
-          <Image src={Logo} alt="Xlya" width={90} height={30} className="h-auto w-auto" />
+          <Logo size="sm" />
         </Link>
         {screen === "questions" && currentStep > 0 && (
           <button
