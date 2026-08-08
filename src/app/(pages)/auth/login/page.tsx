@@ -118,30 +118,6 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-      {/* Coming Soon Overlay */}
-      <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md">
-        <div className="text-center px-6">
-          <div className="w-16 h-16 mx-auto mb-6 rounded-full border-2 border-[var(--gold-primary)]/50 flex items-center justify-center">
-            <svg className="w-8 h-8 text-[var(--gold-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-[var(--gold-primary)] mb-3">Coming Soon</h1>
-          <p className="text-gray-400 text-sm sm:text-base mb-8 max-w-xs mx-auto">
-            We&apos;re putting the finishing touches on something great. Stay tuned!
-          </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-[var(--gold-primary)] border border-[var(--gold-primary)]/40 hover:bg-[var(--gold-primary)]/10 transition-colors duration-200 px-5 py-2.5 rounded-full text-sm font-medium"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Home
-          </Link>
-        </div>
-      </div>
-
       {/* Animated X-Shapes Background */}
       <AnimatedXBackground />
 

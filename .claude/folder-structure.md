@@ -106,3 +106,15 @@ Snapshot of the repository layout (excludes `node_modules`, `.next`, `.git`).
 - Brand font "Fjalla One" is loaded via `next/font/google` in `src/app/layout.tsx` and exposed as the `.fjalla-one-regular` utility class in `globals.css`.
 - The Navbar (`src/components/landingPage/Navbar.tsx`) has no logo — it was intentionally removed; only the Menu/Get Started controls remain.
 - `AnnouncementBanner.tsx` still exists but is not rendered anywhere (removed from `src/app/page.tsx`).
+
+## Onboarding flow (as of 2026-08-08)
+- Product flow changed: all "Get Started" buttons (Navbar desktop/mobile, WhyTexalya) route straight to `/onboarding`, treating the visitor as anonymous/new — `/onboarding` no longer redirects unauthenticated users to `/auth/login`, and no longer skips to `/dashboard` for already-onboarded users.
+- Onboarding is a single linear 4-step flow (no more solo/team branching): business type → biggest challenge → team size → optional website URL.
+- Both "Finish" and "Skip — I'll add it later" (step 4) redirect to `/auth/signup`, not `/dashboard`.
+- The `submitOnboardingAnswer` API call in `src/app/(pages)/onboarding/page.tsx` is **commented out** — steps advance with local state only. `src/redux/services/onboarding/onboarding.ts` is untouched and kept for when the new API contract is ready.
+- A dedicated Login button (routing to `/auth/login`) is planned but not yet added.
+
+## Auth pages
+- The "Coming Soon" full-screen overlay has been removed from both `src/app/(pages)/auth/signup/page.tsx` and `src/app/(pages)/auth/login/page.tsx` — the real forms are live. (`AnnouncementBanner.tsx`'s unrelated "Coming Soon" marquee text was left as-is since it isn't rendered anywhere.)
+- Signup form has a `Gender` field (Male / Female / Prefer not to say) — implemented as a **custom** dropdown (trigger button + absolutely-positioned dark panel), not a native `<select>`, because native option lists can't be themed. Not yet wired into the `signUp` mutation payload (`SignUpPayload` in `src/redux/services/auth/auth.ts` doesn't include it).
+- Scrollbars are hidden globally (`src/app/globals.css`) — `scrollbar-width: none`, `::-webkit-scrollbar { display: none }` — on every page, scrolling still works.

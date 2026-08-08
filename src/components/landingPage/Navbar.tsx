@@ -98,7 +98,7 @@ const Navbar = ({ showNavLinks = true }: NavbarProps) => {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
                         >
-                            <Link href="/auth/signup">
+                            <Link href="/onboarding">
                                 <GetStartedButton />
                             </Link>
                         </motion.div>
@@ -173,7 +173,7 @@ const Navbar = ({ showNavLinks = true }: NavbarProps) => {
                                     </div>
                                 </div>
 
-                                <Link href="/auth/signup" onClick={closeMenu} className="block md:hidden">
+                                <Link href="/onboarding" onClick={closeMenu} className="block md:hidden">
                                     <GetStartedButton fullWidth />
                                 </Link>
                             </div>

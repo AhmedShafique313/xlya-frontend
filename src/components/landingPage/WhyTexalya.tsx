@@ -190,7 +190,7 @@ const WhyTexalya = () => {
                     }`}
                     style={{ transitionDelay: isVisible ? "700ms" : "0ms" }}
                 >
-                    <Link href="/auth/signup">
+                    <Link href="/onboarding">
                         <GetStartedButton>Get Started Free</GetStartedButton>
                     </Link>
                 </div>

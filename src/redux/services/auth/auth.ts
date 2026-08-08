@@ -358,16 +358,19 @@ export const authApi = createApi({
 
           return { data: null };
         } catch (error: any) {
-          console.error("GetCurrentSession error:", error);
           // Only clear credentials on a genuine "no active user" error.
           // Never clear on config/network errors — that would wipe UserData.
           const name = error?.name || "";
-          if (
+          const isUnauthenticated =
             name === "UserUnAuthenticatedException" ||
             name === "NotAuthorizedException" ||
-            name === "UserNotFoundException"
-          ) {
+            name === "UserNotFoundException";
+
+          if (isUnauthenticated) {
+            // Expected state for anonymous visitors — not a real error, don't log it.
             dispatch(clearCredentials());
+          } else {
+            console.error("GetCurrentSession error:", error);
           }
           return { data: null };
         }

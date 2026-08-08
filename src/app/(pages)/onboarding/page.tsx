@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -13,77 +13,33 @@ import QuestionStep from "@/components/onboarding/QuestionStep";
 import LoadingScreen from "@/components/onboarding/LoadingScreen";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { useGetCurrentSessionQuery, setUser } from "@/redux/services/auth/auth";
-import { useSubmitOnboardingAnswerMutation } from "@/redux/services/onboarding/onboarding";
+// Onboarding submit API is temporarily disabled — the product flow changed and
+// a new integration will be wired up later. Service file is kept as-is for reuse.
+// import { useSubmitOnboardingAnswerMutation } from "@/redux/services/onboarding/onboarding";
 import { toast } from "@/components/snakbar";
 
 // ─── Option datasets ──────────────────────────────────────────────────────────
 
-const USER_TYPE_OPTIONS = [
-  {
-    label: "Solo / Individual",
-    description: "Just me, exploring and building on my own",
-    size: "large" as const,
-    icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-        />
-      </svg>
-    ) as ReactNode,
-  },
-  {
-    label: "Team / Organization",
-    description: "Working with a team or company",
-    size: "large" as const,
-    icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-        />
-      </svg>
-    ) as ReactNode,
-  },
+const BUSINESS_TYPE_OPTIONS = [
+  { label: "E-commerce & retail", description: "Products, stores, DTC brands" },
+  { label: "SaaS / tech product", description: "Apps, platforms, dev tools" },
+  { label: "Agency or freelance", description: "Services, clients, creative work" },
+  { label: "Creator or personal brand", description: "Content, community, influence" },
+  { label: "Local business", description: "Brick-and-mortar, services" },
+  { label: "Something else", description: "I'll tell you more later" },
 ];
 
-const ROLE_OPTIONS = [
-  { label: "Marketing / Growth" },
-  { label: "Developer / Engineer" },
-  { label: "Founder / Co-founder" },
-  { label: "Product Manager" },
-  { label: "Sales" },
-  { label: "Other" },
-];
-
-const INDUSTRY_OPTIONS = [
-  { label: "Education" },
-  { label: "Agency / Startups" },
-  { label: "SaaS / Tech" },
-  { label: "Healthcare" },
-  { label: "E-Commerce" },
-];
-
-const GOALS_OPTIONS = [
-  { label: "AI" },
-  { label: "Fabric Generation" },
-  { label: "Manage Team" },
-  { label: "SMART Scheduler" },
-  { label: "CRM" },
-  { label: "Autonomous Campaigns" },
-  { label: "Explore Xlya Capabilities" },
+const CHALLENGE_OPTIONS = [
+  { label: "Creating enough content", description: "Ads, posts, UGC, copy — never enough hours" },
+  { label: "Finding and converting leads", description: "Traffic, outreach, and turning visitors into buyers" },
+  { label: "Manual, repetitive work", description: "Tasks that eat my week but shouldn't" },
+  { label: "Scaling without hiring", description: "Do more with the team I already have" },
 ];
 
 const TEAM_SIZE_OPTIONS = [
-  { label: "2–10" },
-  { label: "21–50" },
-  { label: "50–100" },
-  { label: "101–200" },
-  { label: "200+" },
+  { label: "Just me" },
+  { label: "2–10 people" },
+  { label: "11+ people" },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -97,122 +53,98 @@ interface StepOption {
 
 interface StepConfig {
   id: string;
+  type: "options" | "website";
   question: string;
   subtitle?: string;
-  options: StepOption[];
-  multi: boolean;
-  columns: 1 | 2 | 3;
-  field: "userType" | "teamSize" | "role" | "industry" | "goals";
+  options?: StepOption[];
+  multi?: boolean;
+  columns?: 1 | 2 | 3;
+  field: "businessType" | "challenge" | "teamSize" | "website";
 }
 
 interface OnboardingAnswers {
-  userType: string;
+  businessType: string;
+  challenge: string;
   teamSize: string;
-  role: string;
-  industry: string;
-  goals: string[];
+  website: string;
 }
 
 // ─── Step configs ─────────────────────────────────────────────────────────────
 
-const STEP_USER_TYPE: StepConfig = {
-  id: "userType",
-  question: "How do you plan to use Xlya?",
-  options: USER_TYPE_OPTIONS,
-  multi: false,
-  columns: 2,
-  field: "userType",
-};
-
-const STEP_TEAM_SIZE: StepConfig = {
-  id: "teamSize",
-  question: "How big is your team?",
-  options: TEAM_SIZE_OPTIONS,
-  multi: false,
-  columns: 2,
-  field: "teamSize",
-};
-
-const STEP_ROLE: StepConfig = {
-  id: "role",
-  question: "What best describes your role?",
-  options: ROLE_OPTIONS,
-  multi: false,
-  columns: 2,
-  field: "role",
-};
-
-const STEP_INDUSTRY: StepConfig = {
-  id: "industry",
-  question: "Which industry do you work in?",
-  options: INDUSTRY_OPTIONS,
-  multi: false,
-  columns: 2,
-  field: "industry",
-};
-
-const STEP_GOALS: StepConfig = {
-  id: "goals",
-  question: "What do you want to achieve with Xlya right now?",
-  subtitle: "This helps us highlight the most relevant features for you.",
-  options: GOALS_OPTIONS,
-  multi: true,
-  columns: 3,
-  field: "goals",
-};
-
-const SOLO_STEPS: StepConfig[] = [STEP_USER_TYPE, STEP_ROLE, STEP_INDUSTRY, STEP_GOALS];
-const TEAM_STEPS: StepConfig[] = [STEP_USER_TYPE, STEP_TEAM_SIZE, STEP_ROLE, STEP_INDUSTRY, STEP_GOALS];
+const STEPS: StepConfig[] = [
+  {
+    id: "businessType",
+    type: "options",
+    question: "What kind of business are you building?",
+    subtitle: "We'll personalize your workspace around your world.",
+    options: BUSINESS_TYPE_OPTIONS,
+    multi: false,
+    columns: 2,
+    field: "businessType",
+  },
+  {
+    id: "challenge",
+    type: "options",
+    question: "What's your biggest challenge right now?",
+    subtitle: "Pick the one that's costing you the most time or money.",
+    options: CHALLENGE_OPTIONS,
+    multi: false,
+    columns: 2,
+    field: "challenge",
+  },
+  {
+    id: "teamSize",
+    type: "options",
+    question: "How big is your team?",
+    subtitle: "Helps us suggest the right mix of apps and agents.",
+    options: TEAM_SIZE_OPTIONS,
+    multi: false,
+    columns: 1,
+    field: "teamSize",
+  },
+  {
+    id: "website",
+    type: "website",
+    question: "Your website (optional)",
+    subtitle: "Drop your URL and we'll analyze your site and pre-fill your project.",
+    field: "website",
+  },
+];
 
 // ─── Page component ───────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state.auth);
   const { isLoading: sessionLoading } = useGetCurrentSessionQuery();
-  const [submitAnswer, { isLoading: isSubmitting }] = useSubmitOnboardingAnswerMutation();
+  // const [submitAnswer, { isLoading: isSubmitting }] = useSubmitOnboardingAnswerMutation();
+  const isSubmitting = false;
 
   const [screen, setScreen] = useState<"welcome" | "questions" | "loading">("welcome");
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(true);
   const [answers, setAnswers] = useState<OnboardingAnswers>({
-    userType: "",
+    businessType: "",
+    challenge: "",
     teamSize: "",
-    role: "",
-    industry: "",
-    goals: [],
+    website: "",
   });
 
-  // Redirect unauthenticated users to login
-  useEffect(() => {
-    if (!sessionLoading && !isAuthenticated) {
-      router.push("/auth/login");
-    }
-  }, [sessionLoading, isAuthenticated, router]);
-
-  // Skip onboarding if already completed (onboarding_status === false means completed)
-  // Guard against firing during the loading screen animation at the end of onboarding
-  useEffect(() => {
-    if (user?.onboardingStatus === false && screen !== "loading") {
-      router.push("/dashboard");
-    }
-  }, [user, router, screen]);
-
   // Derived values
-  const isTeam = answers.userType === "Team / Organization";
-  const steps: StepConfig[] = isTeam ? TEAM_STEPS : SOLO_STEPS;
+  const steps: StepConfig[] = STEPS;
   const totalSteps = steps.length;
   const stepConfig = steps[currentStep];
 
-  const getCurrentValue = (): string | string[] => {
+  const getCurrentValue = (): string => {
     if (!stepConfig) return "";
     return answers[stepConfig.field];
   };
 
   const canProceed = (): boolean => {
+    // Website step is optional — always allowed to proceed (Skip or filled in)
+    if (stepConfig?.type === "website") return true;
     const val = getCurrentValue();
-    if (stepConfig?.multi) return Array.isArray(val) && val.length > 0;
     return typeof val === "string" && val.trim() !== "";
   };
 
@@ -226,92 +158,36 @@ export default function OnboardingPage() {
 
   const handleSelect = (value: string) => {
     const field = stepConfig.field;
-    if (stepConfig.multi) {
-      setAnswers((prev) => {
-        const arr = prev[field] as string[];
-        return {
-          ...prev,
-          [field]: arr.includes(value)
-            ? arr.filter((v) => v !== value)
-            : [...arr, value],
-        };
-      });
-    } else {
-      setAnswers((prev) => {
-        // Reset dependent answers when user type changes
-        if (field === "userType" && prev[field] !== value) {
-          return { ...prev, userType: value, teamSize: "", role: "", industry: "", goals: [] };
-        }
-        return { ...prev, [field]: value };
-      });
-    }
+    setAnswers((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleNext = async () => {
-    try {
-      // Map current step to question_id and prepare answer
-      let questionId = "";
-      let answer = "";
+  const handleNext = (overrideAnswer?: string) => {
+    // API submission is temporarily disabled — see the commented-out
+    // useSubmitOnboardingAnswerMutation import above. Steps advance locally only.
+    const field = stepConfig.field;
+    if (overrideAnswer !== undefined) {
+      setAnswers((prev) => ({ ...prev, [field]: overrideAnswer }));
+    }
 
-      const field = stepConfig.field;
-      const value = answers[field];
-
-      if (field === "userType") {
-        // First question (q1) - mandatory onboarding question
-        questionId = "q1";
-        answer = value === "Solo / Individual" ? "individual" : "team";
-      } else if (field === "goals") {
-        // Goals are multi-select, join with commas
-        answer = Array.isArray(value) ? value.join(", ") : "";
-        // Determine question_id based on user type
-        questionId = isTeam ? "q4" : "q4";
-      } else {
-        // Other questions (role, industry, teamSize)
-        answer = typeof value === "string" ? value : "";
-
-        // Map to question_id based on user type and step
-        if (isTeam) {
-          if (field === "teamSize") questionId = "q2";
-          else if (field === "role") questionId = "q3";
-          else if (field === "industry") questionId = "q4";
-        } else {
-          if (field === "role") questionId = "q2";
-          else if (field === "industry") questionId = "q3";
-        }
+    // Move to next step or complete
+    if (currentStep < totalSteps - 1) {
+      transition(() => setCurrentStep((s) => s + 1));
+    } else {
+      // Update Redux state to mark onboarding as completed
+      if (user) {
+        dispatch(
+          setUser({
+            ...user,
+            onboardingStatus: false,
+          })
+        );
       }
 
-      // Submit answer to API
-      const response = await submitAnswer({
-        answer,
-        question_id: questionId === "q1" ? undefined : questionId,
-      }).unwrap();
-
-      console.log("Onboarding response:", response);
-
-      // Move to next step or complete
-      if (currentStep < totalSteps - 1) {
-        transition(() => setCurrentStep((s) => s + 1));
-      } else {
-        // Update Redux state to mark onboarding as completed
-        if (user) {
-          dispatch(
-            setUser({
-              ...user,
-              onboardingStatus: false,
-              userType: response.user_type || user.userType,
-            })
-          );
-        }
-
-        setScreen("loading");
-        setTimeout(() => {
-          toast.success("Onboarding completed successfully!");
-          router.push("/dashboard");
-        }, 3800);
-      }
-    } catch (error: any) {
-      console.error("Error submitting onboarding answer:", error);
-      toast.error(error?.data?.message || "Failed to save your answer. Please try again.");
+      setScreen("loading");
+      setTimeout(() => {
+        toast.success("Onboarding completed successfully!");
+        router.push("/auth/signup");
+      }, 3800);
     }
   };
 
@@ -344,8 +220,6 @@ export default function OnboardingPage() {
       </div>
     );
   }
-
-  if (!isAuthenticated) return null;
 
   return (
     <div className="h-screen overflow-hidden bg-black relative flex flex-col">
@@ -395,15 +269,50 @@ export default function OnboardingPage() {
               </div>
 
               {/* Question + options */}
-              <QuestionStep
-                question={stepConfig.question}
-                subtitle={stepConfig.subtitle}
-                options={stepConfig.options}
-                selected={getCurrentValue()}
-                onSelect={handleSelect}
-                multi={stepConfig.multi}
-                columns={stepConfig.columns}
-              />
+              {stepConfig.type === "website" ? (
+                <div className="animate-fadeIn">
+                  <div className="mb-4 sm:mb-5">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug">
+                      {stepConfig.question}
+                    </h2>
+                    {stepConfig.subtitle && (
+                      <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                        {stepConfig.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  <input
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://yourwebsite.com"
+                    value={answers.website}
+                    onChange={(e) => handleSelect(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[var(--gold-primary)] transition-colors duration-200"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelect("");
+                      handleNext("");
+                    }}
+                    className="mt-3 text-gray-500 hover:text-gray-300 text-sm transition-colors duration-200"
+                  >
+                    Skip — I&apos;ll add it later
+                  </button>
+                </div>
+              ) : (
+                <QuestionStep
+                  question={stepConfig.question}
+                  subtitle={stepConfig.subtitle}
+                  options={stepConfig.options ?? []}
+                  selected={getCurrentValue()}
+                  onSelect={handleSelect}
+                  multi={stepConfig.multi}
+                  columns={stepConfig.columns}
+                />
+              )}
 
               {/* Navigation */}
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
@@ -418,7 +327,7 @@ export default function OnboardingPage() {
                 </button>
 
                 <button
-                  onClick={handleNext}
+                  onClick={() => handleNext()}
                   disabled={!canProceed() || isSubmitting}
                   className={`flex items-center gap-2 px-7 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
                     canProceed() && !isSubmitting

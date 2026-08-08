@@ -35,38 +35,18 @@ button {
 }
 
 /* ============================================
-   CUSTOM SCROLLBAR
+   HIDDEN SCROLLBAR (scrolling still works, bar is just not drawn)
    ============================================ */
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #0a0a0a;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    var(--gold-primary),
-    color-mix(in srgb, var(--gold-primary) 60%, #000)
-  );
-  border-radius: 100px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--gold-primary) 120%, #fff),
-    var(--gold-primary)
-  );
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--gold-primary) #0a0a0a;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* ============================================
