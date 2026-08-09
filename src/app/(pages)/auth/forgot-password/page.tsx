@@ -4,7 +4,6 @@ import { useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/common/Logo";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 import Button from "@/components/common/Button";
 import { useResetPasswordMutation, useConfirmResetPasswordMutation } from "@/redux/services/auth/auth";
@@ -187,8 +186,7 @@ function ForgotPasswordContent() {
   };
 
   return (
-    <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-      <AnimatedXBackground />
+    <div className="min-h-screen h-screen flex relative overflow-hidden">
       <AuthFeaturesSidebar />
 
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-9 relative z-10">
@@ -428,7 +426,7 @@ export default function ForgotPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-white">Loading...</div>
         </div>
       }

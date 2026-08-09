@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/common/Logo";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 import { useSignInMutation } from "@/redux/services/auth/auth";
 import { useLazyGetProfileInfoQuery } from "@/redux/services/auth/profileInfo";
@@ -117,10 +116,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-      {/* Animated X-Shapes Background */}
-      <AnimatedXBackground />
-
+    <div className="min-h-screen h-screen flex relative overflow-hidden">
       {/* Left Side - Features */}
       <AuthFeaturesSidebar />
 
@@ -296,7 +292,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     }>

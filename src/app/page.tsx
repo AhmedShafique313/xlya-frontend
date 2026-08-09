@@ -4,13 +4,10 @@ import Pricing from "@/components/landingPage/Pricing";
 import Contact from "@/components/landingPage/Contact";
 import Footer from "@/components/landingPage/Footer";
 import Navbar from "@/components/landingPage/Navbar";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 
 export default function Home() {
   return (
     <main className="min-h-screen pt-[80px]">
-
-      <AnimatedXBackground/>
 
       <Navbar/>
 

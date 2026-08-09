@@ -5,6 +5,7 @@ import ThemeProvider from "@/utils/theme-provider";
 import { Providers } from "@/redux/provider";
 import { AmplifyConfigProvider } from "@/components/providers/AmplifyConfigProvider";
 import { ToastProvider } from "@/components/snakbar";
+import KineticGrid from "@/components/common/KineticGrid";
 
 const fjallaOne = Fjalla_One({
   subsets: ["latin"],
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={fjallaOne.variable}>
       <body className="bg-black min-h-screen">
+        <KineticGrid />
         <AmplifyConfigProvider>
           <ThemeProvider>
             <Providers>

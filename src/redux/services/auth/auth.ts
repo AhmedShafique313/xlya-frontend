@@ -33,12 +33,15 @@ interface AuthState {
     phoneNumber?: string;
     age?: number;
     socialLinks?: Record<string, string>;
+    projectId?: string;
   } | null;
   isAuthenticated: boolean;
+  // Only the access token is persisted — it's the only one anything in this
+  // app actually sends. expiresAt (ms epoch, from the token's own `exp`
+  // claim) lets ProtectedRoute detect an expired session and bounce to login.
   tokens: {
     accessToken: string | null;
-    idToken: string | null;
-    refreshToken: string | null;
+    expiresAt: number | null;
   };
   isLoading: boolean;
 }
@@ -64,8 +67,7 @@ interface UserSession {
   };
   tokens: {
     accessToken: string;
-    idToken: string;
-    refreshToken?: string;
+    expiresAt: number | null;
   };
 }
 
@@ -76,8 +78,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   tokens: {
     accessToken: null,
-    idToken: null,
-    refreshToken: null,
+    expiresAt: null,
   },
   isLoading: false,
 };
@@ -90,17 +91,16 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.tokens = {
         accessToken: action.payload.tokens.accessToken,
-        idToken: action.payload.tokens.idToken,
-        refreshToken: action.payload.tokens.refreshToken || null,
+        expiresAt: action.payload.tokens.expiresAt,
       };
       state.isAuthenticated = true;
       state.isLoading = false;
       // No localStorage write here — login page writes UserData with raw profile API response
     },
-    setTokens(state, action: PayloadAction<{ accessToken: string; idToken: string }>) {
+    setTokens(state, action: PayloadAction<{ accessToken: string; expiresAt: number | null }>) {
       // Refreshes tokens in Redux only, never touches localStorage
       state.tokens.accessToken = action.payload.accessToken;
-      state.tokens.idToken = action.payload.idToken;
+      state.tokens.expiresAt = action.payload.expiresAt;
       state.isAuthenticated = true;
     },
     setUser(state, action: PayloadAction<any>) {
@@ -119,8 +119,7 @@ const authSlice = createSlice({
       state.user = null;
       state.tokens = {
         accessToken: null,
-        idToken: null,
-        refreshToken: null,
+        expiresAt: null,
       };
       state.isAuthenticated = false;
       state.isLoading = false;
@@ -155,6 +154,7 @@ const authSlice = createSlice({
               phoneNumber: u.phone_number ?? u.phoneNumber,
               age: u.age,
               socialLinks: u.social_links ?? u.socialLinks,
+              projectId: u.project_id ?? u.projectId,
             };
             state.tokens = data.tokens;
             state.isAuthenticated = true;
@@ -260,11 +260,13 @@ export const authApi = createApi({
             // Fetch the auth session to get tokens
             const session = await fetchAuthSession();
 
-            // Extract tokens
+            // Extract the access token — the only one this app persists
             const accessToken = session.tokens?.accessToken?.toString() || "";
-            const idToken = session.tokens?.idToken?.toString() || "";
+            const expiresAt = session.tokens?.accessToken?.payload?.exp
+              ? (session.tokens.accessToken.payload.exp as number) * 1000
+              : null;
 
-            // Get user attributes from ID token
+            // Get user attributes from the ID token (not persisted, used only here)
             const idTokenPayload = session.tokens?.idToken?.payload;
 
             const userSession: UserSession = {
@@ -276,7 +278,7 @@ export const authApi = createApi({
               },
               tokens: {
                 accessToken,
-                idToken,
+                expiresAt,
               },
             };
 
@@ -338,11 +340,13 @@ export const authApi = createApi({
 
           if (session.tokens) {
             const accessToken = session.tokens.accessToken?.toString() || "";
-            const idToken = session.tokens.idToken?.toString() || "";
+            const expiresAt = session.tokens.accessToken?.payload?.exp
+              ? (session.tokens.accessToken.payload.exp as number) * 1000
+              : null;
             const idTokenPayload = session.tokens.idToken?.payload;
 
             // Only refresh tokens in Redux — never overwrite UserData localStorage
-            dispatch(setTokens({ accessToken, idToken }));
+            dispatch(setTokens({ accessToken, expiresAt }));
 
             const userSession: UserSession = {
               user: {
@@ -351,7 +355,7 @@ export const authApi = createApi({
                 firstName: idTokenPayload?.given_name as string,
                 lastName: idTokenPayload?.family_name as string,
               },
-              tokens: { accessToken, idToken },
+              tokens: { accessToken, expiresAt },
             };
             return { data: userSession };
           }

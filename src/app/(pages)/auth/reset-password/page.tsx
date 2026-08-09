@@ -52,25 +52,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated X-Shapes Background */}
-      <div className="x-bg-container-fixed">
-        <div className="absolute top-20 left-1/4 x-lg x-gold-primary x-shape animate-float-slow"></div>
-        <div className="absolute bottom-32 right-1/4 x-lg-xl x-white-medium x-shape animate-float-medium"></div>
-        <div className="absolute top-1/2 right-1/3 x-lg x-gold-secondary x-shape animate-float-fast"></div>
-        <div className="absolute bottom-1/4 left-1/3 x-lg x-gold-light x-shape animate-float-slow"></div>
-        
-        <div className="absolute top-1/4 right-20 x-md x-white-medium x-shape animate-bounce-slow"></div>
-        <div className="absolute bottom-1/4 left-24 x-md-lg x-gold-dark x-shape animate-pulse-slow"></div>
-        <div className="absolute top-2/3 left-1/3 x-md x-gold-accent x-shape animate-bounce-medium"></div>
-        <div className="absolute top-1/3 right-1/4 x-md x-white-strong x-shape animate-float-medium"></div>
-        
-        <div className="absolute top-40 right-1/2 x-sm-md x-gold-primary x-shape animate-float-fast"></div>
-        <div className="absolute bottom-40 left-1/2 x-sm x-white-strong x-shape animate-bounce-fast"></div>
-        <div className="absolute top-1/3 left-20 x-sm-md x-gold-secondary x-shape animate-float-medium"></div>
-        <div className="absolute bottom-1/2 right-1/3 x-sm x-gold-light x-shape animate-pulse-slow"></div>
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       <div className="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-8 shadow-2xl relative z-10">
         <div className="mb-8 text-center">
           <Link href="/">

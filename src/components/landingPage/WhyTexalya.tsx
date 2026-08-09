@@ -68,7 +68,7 @@ const WhyTexalya = () => {
     ];
 
     return (
-        <section ref={sectionRef} className="relative py-16 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+        <section ref={sectionRef} className="relative border-t border-white/5 py-16 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
             {/* Background decorative glows */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div

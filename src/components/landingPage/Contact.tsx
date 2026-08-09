@@ -142,7 +142,7 @@ const Contact = () => {
     <section
       ref={sectionRef}
       id="contact"
-      className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden"
+      className="relative border-t border-white/5 py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden"
     >
       {/* Background decorative glows */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

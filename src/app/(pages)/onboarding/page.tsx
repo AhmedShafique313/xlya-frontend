@@ -6,45 +6,44 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import Logo from "@/components/common/Logo";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import WelcomeScreen from "@/components/onboarding/WelcomeScreen";
 import ProgressBar from "@/components/onboarding/ProgressBar";
 import QuestionStep from "@/components/onboarding/QuestionStep";
-import LoadingScreen from "@/components/onboarding/LoadingScreen";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { useGetCurrentSessionQuery, setUser } from "@/redux/services/auth/auth";
+import { ONBOARDING_ANSWERS_STORAGE_KEY } from "@/constants/onboarding";
 // Onboarding submit API is temporarily disabled — the product flow changed and
 // a new integration will be wired up later. Service file is kept as-is for reuse.
 // import { useSubmitOnboardingAnswerMutation } from "@/redux/services/onboarding/onboarding";
-import { toast } from "@/components/snakbar";
 
 // ─── Option datasets ──────────────────────────────────────────────────────────
 
 const BUSINESS_TYPE_OPTIONS = [
-  { label: "E-commerce & retail", description: "Products, stores, DTC brands" },
-  { label: "SaaS / tech product", description: "Apps, platforms, dev tools" },
-  { label: "Agency or freelance", description: "Services, clients, creative work" },
-  { label: "Creator or personal brand", description: "Content, community, influence" },
-  { label: "Local business", description: "Brick-and-mortar, services" },
-  { label: "Something else", description: "I'll tell you more later" },
+  { value: "ecommerce", label: "E-commerce & retail", description: "Products, stores, DTC brands" },
+  { value: "saas", label: "SaaS / tech product", description: "Apps, platforms, dev tools" },
+  { value: "agency", label: "Agency or freelance", description: "Services, clients, creative work" },
+  { value: "creator", label: "Creator or personal brand", description: "Content, community, influence" },
+  { value: "local", label: "Local business", description: "Brick-and-mortar, services" },
+  { value: "other", label: "Something else", description: "I'll tell you more later" },
 ];
 
 const CHALLENGE_OPTIONS = [
-  { label: "Creating enough content", description: "Ads, posts, UGC, copy — never enough hours" },
-  { label: "Finding and converting leads", description: "Traffic, outreach, and turning visitors into buyers" },
-  { label: "Manual, repetitive work", description: "Tasks that eat my week but shouldn't" },
-  { label: "Scaling without hiring", description: "Do more with the team I already have" },
+  { value: "content", label: "Creating enough content", description: "Ads, posts, UGC, copy — never enough hours" },
+  { value: "leads", label: "Finding and converting leads", description: "Traffic, outreach, and turning visitors into buyers" },
+  { value: "ops", label: "Manual, repetitive work", description: "Tasks that eat my week but shouldn't" },
+  { value: "scale", label: "Scaling without hiring", description: "Do more with the team I already have" },
 ];
 
 const TEAM_SIZE_OPTIONS = [
-  { label: "Just me" },
-  { label: "2–10 people" },
-  { label: "11+ people" },
+  { value: "solo", label: "Just me" },
+  { value: "small", label: "2–10 people" },
+  { value: "medium", label: "11+ people" },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface StepOption {
+  value: string;
   label: string;
   description?: string;
   icon?: ReactNode;
@@ -121,7 +120,7 @@ export default function OnboardingPage() {
   // const [submitAnswer, { isLoading: isSubmitting }] = useSubmitOnboardingAnswerMutation();
   const isSubmitting = false;
 
-  const [screen, setScreen] = useState<"welcome" | "questions" | "loading">("welcome");
+  const [screen, setScreen] = useState<"welcome" | "questions">("welcome");
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(true);
   const [answers, setAnswers] = useState<OnboardingAnswers>({
@@ -142,8 +141,8 @@ export default function OnboardingPage() {
   };
 
   const canProceed = (): boolean => {
-    // Website step is optional — always allowed to proceed (Skip or filled in)
-    if (stepConfig?.type === "website") return true;
+    // Website is optional, but only via the explicit "Skip" link — the
+    // Finish/Next button still requires a value like every other step.
     const val = getCurrentValue();
     return typeof val === "string" && val.trim() !== "";
   };
@@ -165,8 +164,9 @@ export default function OnboardingPage() {
     // API submission is temporarily disabled — see the commented-out
     // useSubmitOnboardingAnswerMutation import above. Steps advance locally only.
     const field = stepConfig.field;
+    const finalAnswers = overrideAnswer !== undefined ? { ...answers, [field]: overrideAnswer } : answers;
     if (overrideAnswer !== undefined) {
-      setAnswers((prev) => ({ ...prev, [field]: overrideAnswer }));
+      setAnswers(finalAnswers);
     }
 
     // Move to next step or complete
@@ -183,11 +183,16 @@ export default function OnboardingPage() {
         );
       }
 
-      setScreen("loading");
-      setTimeout(() => {
-        toast.success("Onboarding completed successfully!");
-        router.push("/auth/signup");
-      }, 3800);
+      sessionStorage.setItem(
+        ONBOARDING_ANSWERS_STORAGE_KEY,
+        JSON.stringify({
+          businessType: finalAnswers.businessType || undefined,
+          challenge: finalAnswers.challenge || undefined,
+          teamSize: finalAnswers.teamSize || undefined,
+          websiteUrl: finalAnswers.website || undefined,
+        })
+      );
+      router.push("/auth/signup");
     }
   };
 
@@ -215,17 +220,14 @@ export default function OnboardingPage() {
   // Loading state while session is fetched on refresh
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[var(--gold-primary)] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-black relative flex flex-col">
-      {/* Fixed background */}
-      <AnimatedXBackground />
-
+    <div className="h-screen overflow-hidden relative flex flex-col">
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 flex-shrink-0">
         <Link href="/">
@@ -297,7 +299,7 @@ export default function OnboardingPage() {
                       handleSelect("");
                       handleNext("");
                     }}
-                    className="mt-3 text-gray-500 hover:text-gray-300 text-sm transition-colors duration-200"
+                    className="mt-3 text-[var(--gold-primary)] hover:text-[var(--gold-light)] text-sm font-medium transition-colors duration-200"
                   >
                     Skip — I&apos;ll add it later
                   </button>
@@ -350,13 +352,6 @@ export default function OnboardingPage() {
                   )}
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Loading screen */}
-          {screen === "loading" && (
-            <div className="bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl border border-white/10">
-              <LoadingScreen />
             </div>
           )}
         </div>

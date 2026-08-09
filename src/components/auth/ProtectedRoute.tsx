@@ -3,8 +3,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppSelector } from "@/redux/hooks";
-import { useGetCurrentSessionQuery } from "@/redux/services/auth/auth";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { useGetCurrentSessionQuery, clearCredentials } from "@/redux/services/auth/auth";
 
 export default function ProtectedRoute({
   children,
@@ -12,14 +12,22 @@ export default function ProtectedRoute({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const dispatch = useAppDispatch();
+  const { isAuthenticated, tokens } = useAppSelector((state) => state.auth);
   const { isLoading } = useGetCurrentSessionQuery();
 
   useEffect(() => {
+    const expired = !!tokens.expiresAt && Date.now() >= tokens.expiresAt;
+
+    if (isAuthenticated && expired) {
+      dispatch(clearCredentials());
+      router.push("/auth/login");
+      return;
+    }
     if (!isLoading && !isAuthenticated) {
       router.push("/auth/login");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, tokens.expiresAt, dispatch, router]);
 
   // Already authenticated from localStorage — show children immediately
   // while getCurrentSession refreshes tokens in the background

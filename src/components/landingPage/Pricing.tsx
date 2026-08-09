@@ -120,7 +120,7 @@ const Pricing = () => {
   }, []);
 
   return (
-    <section ref={sectionRef} id="pricing" className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section ref={sectionRef} id="pricing" className="relative border-t border-white/5 py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
       {/* Starfield */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {stars.map((star, i) => (

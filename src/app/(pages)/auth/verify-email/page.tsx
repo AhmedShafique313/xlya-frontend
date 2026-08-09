@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirmSignUpMutation, useResendSignUpCodeMutation } from "@/redux/services/auth/auth";
 import Link from "next/link";
 import Logo from "@/components/common/Logo";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 
 function VerifyEmailContent() {
@@ -137,8 +136,7 @@ function VerifyEmailContent() {
 
   if (!email) {
     return (
-      <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-        <AnimatedXBackground />
+      <div className="min-h-screen h-screen flex relative overflow-hidden">
         <AuthFeaturesSidebar />
         
         <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-9 relative z-10">
@@ -169,8 +167,7 @@ function VerifyEmailContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-        <AnimatedXBackground />
+      <div className="min-h-screen h-screen flex relative overflow-hidden">
         <AuthFeaturesSidebar />
         
         <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-9 relative z-10">
@@ -199,10 +196,7 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-      {/* Animated X-Shapes Background */}
-      <AnimatedXBackground />
-
+    <div className="min-h-screen h-screen flex relative overflow-hidden">
       {/* Left Side - Features */}
       <AuthFeaturesSidebar />
 
@@ -325,7 +319,7 @@ function VerifyEmailContent() {
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center  justify-center">
+      <div className="min-h-screen flex items-center  justify-center">
         <div className="text-white">Loading...</div>
       </div>
     }>

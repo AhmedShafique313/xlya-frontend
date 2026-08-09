@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import OptionCard from "./OptionCard";
 
 interface Option {
+  value: string;
   label: string;
   description?: string;
   icon?: ReactNode;
@@ -33,9 +34,9 @@ export default function QuestionStep({
     3: "grid-cols-2 sm:grid-cols-3",
   };
 
-  const isSelected = (label: string): boolean => {
-    if (multi && Array.isArray(selected)) return selected.includes(label);
-    return selected === label;
+  const isSelected = (value: string): boolean => {
+    if (multi && Array.isArray(selected)) return selected.includes(value);
+    return selected === value;
   };
 
   // Detect a single orphan in the last row of a 3-column grid.
@@ -86,8 +87,8 @@ export default function QuestionStep({
               label={opt.label}
               description={opt.description}
               icon={opt.icon}
-              selected={isSelected(opt.label)}
-              onClick={() => onSelect(opt.label)}
+              selected={isSelected(opt.value)}
+              onClick={() => onSelect(opt.value)}
               size={opt.size}
             />
           </div>

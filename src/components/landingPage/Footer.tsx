@@ -52,7 +52,7 @@ const Footer = () => {
   return (
     <footer 
       ref={footerRef}
-      className="bg-black border-t border-gray-800/50 relative overflow-hidden"
+      className="border-t border-gray-800/50 relative overflow-hidden"
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -bottom-20 -left-20 w-80 h-80 opacity-5 rounded-full blur-3xl" style={{ backgroundColor: 'var(--gold-primary)' }}></div>

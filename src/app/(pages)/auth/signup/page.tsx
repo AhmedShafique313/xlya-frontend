@@ -1,18 +1,88 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/common/Logo";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
-import { useSignUpMutation } from "@/redux/services/auth/auth";
+import LoadingScreen, { LoadingStep } from "@/components/onboarding/LoadingScreen";
+import { useAppDispatch } from "@/redux/hooks";
+import { setCredentials, setUser } from "@/redux/services/auth/auth";
+import { streamSignup, SignupApiError } from "@/lib/api/signupStream";
+import { getJwtExpiryMs } from "@/utils/jwt";
+import { ONBOARDING_ANSWERS_STORAGE_KEY, StoredOnboardingAnswers } from "@/constants/onboarding";
 import { toast } from "@/components/snakbar";
+
+const GENDER_SLUGS: Record<string, string> = {
+  Male: "male",
+  Female: "female",
+  "Prefer not to say": "prefer_not_to_say",
+};
+
+// The combined signup+onboarding API's known top-level step sequence, used
+// only to drive the progress ring — extra/unexpected steps are ignored.
+// The website-analysis leg only runs when a websiteUrl was submitted.
+const BASE_STEP_IDS = [
+  "validation",
+  "create_account",
+  "confirm_account",
+  "authenticate",
+  "save_onboarding",
+  "create_project",
+];
+const WEBSITE_STEP_IDS = [
+  "fetch_website_html",
+  "parse_website_html",
+  "compute_lighthouse_metrics",
+  "generate_icp_competitors",
+  "save_website_analysis",
+];
+
+// Steps arrive in a single fast burst (the backend can't truly stream them
+// to the browser through this API — see signupStream.ts), so revealing them
+// all at once feels instant and the checklist would grow tall with the
+// website-analysis leg's extra steps. Instead we pace a single-step display
+// through a fixed-ish total duration, independent of real arrival speed.
+const TARGET_REVEAL_DURATION_MS = 7000;
+const MIN_STEP_REVEAL_MS = 500;
+const MAX_STEP_REVEAL_MS = 1300;
 
 export default function SignupPage() {
   const router = useRouter();
-  const [signUp, { isLoading }] = useSignUpMutation();
-  
+  const dispatch = useAppDispatch();
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+  const [activity, setActivity] = useState("");
+  const [expectedStepIds, setExpectedStepIds] = useState<string[]>(BASE_STEP_IDS);
+
+  // Authoritative, always-fresh list of top-level steps received so far —
+  // a ref so the streaming callback (a closure that outlives re-renders)
+  // never reads a stale value. dataVersion just exists to force a re-render
+  // / re-check of the reveal effect whenever the ref changes, since ref
+  // mutations alone don't trigger one.
+  const stepsRef = useRef<LoadingStep[]>([]);
+  const [dataVersion, setDataVersion] = useState(0);
+  // How many of stepsRef's entries are currently "revealed" to the user;
+  // a timer advances this at a paced cadence, independent of when the
+  // underlying data actually arrived.
+  const [revealedCount, setRevealedCount] = useState(0);
+
+  const currentStep = revealedCount > 0 ? stepsRef.current[revealedCount - 1] ?? null : null;
+  const progress = (revealedCount / expectedStepIds.length) * 100;
+
+  useEffect(() => {
+    if (!showLoading) return;
+    if (revealedCount >= stepsRef.current.length) return; // nothing new yet — wait for more data
+    if (revealedCount >= expectedStepIds.length) return; // already fully revealed
+
+    const perStepMs = Math.min(
+      MAX_STEP_REVEAL_MS,
+      Math.max(MIN_STEP_REVEAL_MS, TARGET_REVEAL_DURATION_MS / expectedStepIds.length)
+    );
+    const timer = setTimeout(() => setRevealedCount((c) => c + 1), perStepMs);
+    return () => clearTimeout(timer);
+  }, [showLoading, revealedCount, expectedStepIds.length, dataVersion]);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -74,33 +144,132 @@ export default function SignupPage() {
 
     if (!validateForm()) return;
 
-    try {
-      await signUp({
-        firstname: formData.firstName,
-        lastname: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-      }).unwrap();
+    const storedRaw = sessionStorage.getItem(ONBOARDING_ANSWERS_STORAGE_KEY);
+    const onboardingAnswers: StoredOnboardingAnswers = storedRaw ? JSON.parse(storedRaw) : {};
 
-      // Success - redirect to verification page
-      router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      gender: GENDER_SLUGS[formData.gender] ?? formData.gender.toLowerCase(),
+      email: formData.email,
+      password: formData.password,
+      ...(onboardingAnswers.businessType && { businessType: onboardingAnswers.businessType }),
+      ...(onboardingAnswers.challenge && { challenge: onboardingAnswers.challenge }),
+      ...(onboardingAnswers.teamSize && { teamSize: onboardingAnswers.teamSize }),
+      ...(onboardingAnswers.websiteUrl && { websiteUrl: onboardingAnswers.websiteUrl }),
+    };
+
+    setIsSigningUp(true);
+    setShowLoading(true);
+    stepsRef.current = [];
+    setRevealedCount(0);
+    setDataVersion((v) => v + 1);
+    setActivity("Getting things started…");
+    setExpectedStepIds(payload.websiteUrl ? [...BASE_STEP_IDS, ...WEBSITE_STEP_IDS] : BASE_STEP_IDS);
+
+    try {
+      await streamSignup(payload, (event) => {
+        if (event.type === "step") {
+          // Live detail text updates immediately for every step, including
+          // nested sub-steps ("Naming your project") — only top-level steps
+          // additionally get a row in the paced single-step reveal below.
+          setActivity(event.label);
+
+          if (event.parent === null) {
+            const status =
+              event.status === "completed" ? "completed" : event.status === "failed" ? "failed" : "active";
+            const idx = stepsRef.current.findIndex((s) => s.id === event.step);
+            if (idx === -1) {
+              stepsRef.current = [...stepsRef.current, { id: event.step, label: event.label, status }];
+            } else {
+              const next = [...stepsRef.current];
+              next[idx] = { id: event.step, label: event.label, status };
+              stepsRef.current = next;
+            }
+            setDataVersion((v) => v + 1);
+          }
+          return;
+        }
+
+        // Final "result" event — the real source of truth for success/failure.
+        // Error responses use "error" instead of "message" and omit tokens/sub;
+        // validation errors additionally carry "details" with the specific
+        // field message(s), which are more useful than the generic "error".
+        if (event.statusCode !== 200 || !event.tokens || !event.sub) {
+          const message = event.details?.length
+            ? event.details.join(" ")
+            : event.error || event.message || "Signup failed";
+          throw new SignupApiError(message, event.statusCode);
+        }
+
+        // Only the access token is kept — id/refresh tokens aren't used anywhere in the app
+        dispatch(
+          setCredentials({
+            user: {
+              email: formData.email,
+              userId: event.sub,
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+            },
+            tokens: {
+              accessToken: event.tokens.accessToken,
+              expiresAt: getJwtExpiryMs(event.tokens.accessToken),
+            },
+          })
+        );
+        dispatch(
+          setUser({
+            email: formData.email,
+            userId: event.sub,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            onboardingStatus: false,
+            gender: payload.gender,
+            projectId: event.project?.project_id,
+          })
+        );
+
+        sessionStorage.removeItem(ONBOARDING_ANSWERS_STORAGE_KEY);
+        // We already have the real outcome — don't make the user sit through
+        // the rest of the paced reveal, snap straight to the finished state.
+        stepsRef.current = stepsRef.current.map((s) => ({ ...s, status: "completed" as const }));
+        setRevealedCount(stepsRef.current.length);
+        setActivity("All set!");
+
+        setTimeout(() => {
+          toast.success("Onboarding completed successfully!");
+          router.push("/dashboard");
+        }, 900);
+      });
     } catch (error: any) {
       console.error("Signup error:", error);
+      setShowLoading(false);
 
-      // Handle Cognito errors (RTK Query wraps errors in error?.error)
-      const errorMessage = error?.error || error?.message || "An error occurred";
+      const errorMessage = error?.message || "An error occurred";
+      const isDuplicateEmail =
+        error instanceof SignupApiError
+          ? error.statusCode === 409
+          : errorMessage.toLowerCase().includes("already exists");
 
-      if (errorMessage.includes("User already exists")) {
+      if (isDuplicateEmail) {
         setErrors({ email: "An account with this email already exists" });
+        toast.error(
+          <span>
+            An account with this email already exists.{" "}
+            <Link href="/auth/login" className="underline text-[var(--gold-primary)]">
+              Log in instead
+            </Link>
+          </span>
+        );
       } else if (errorMessage.toLowerCase().includes("password")) {
         setErrors({
           password: "Password must contain uppercase, lowercase, numbers, and special characters"
         });
-      } else if (errorMessage.includes("Username")) {
-        setErrors({ email: errorMessage });
       } else {
         toast.error(errorMessage);
       }
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
@@ -119,11 +288,18 @@ export default function SignupPage() {
     // TODO: Implement Slack OAuth with Cognito
   };
 
-  return (
-    <div className="min-h-screen h-screen bg-black flex relative overflow-hidden">
-      {/* Animated X-Shapes Background */}
-      <AnimatedXBackground />
+  if (showLoading) {
+    return (
+      <div className="min-h-screen h-screen flex items-center justify-center relative overflow-hidden">
+        <div className="relative z-10 w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl border border-white/10">
+          <LoadingScreen currentStep={currentStep} activity={activity} progress={progress} />
+        </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="min-h-screen h-screen flex relative overflow-hidden">
       {/* Left Side - Features */}
       <AuthFeaturesSidebar />
 
@@ -374,10 +550,10 @@ export default function SignupPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSigningUp}
               className="animate-button-gradient w-full bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-secondary)] text-black font-semibold py-2.5 rounded-lg hover:shadow-xl hover:shadow-[var(--gold-primary)]/20 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-[0.78rem]"
             >
-              {isLoading ? "Creating Account..." : "Sign Up"}
+              {isSigningUp ? "Creating Account..." : "Sign Up"}
             </button>
           </form>
 

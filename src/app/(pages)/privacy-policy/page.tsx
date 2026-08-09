@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import AnimatedXBackground from "@/components/common/AnimatedXBackground";
 import Navbar from "@/components/landingPage/Navbar";
 import Footer from "@/components/landingPage/Footer";
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -75,8 +74,7 @@ export default function PrivacyPolicyPage() {
 
 
     return (
-        <div className="min-h-screen bg-black relative">
-            <AnimatedXBackground />
+        <div className="min-h-screen relative">
             <Navbar showNavLinks={false} />
 
             <div className="relative z-10 pt-24 pb-16">
