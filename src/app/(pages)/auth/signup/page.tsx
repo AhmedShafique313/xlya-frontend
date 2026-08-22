@@ -7,7 +7,7 @@ import Logo from "@/components/common/Logo";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 import LoadingScreen, { LoadingStep } from "@/components/onboarding/LoadingScreen";
 import { useAppDispatch } from "@/redux/hooks";
-import { setCredentials, setUser } from "@/redux/services/auth/auth";
+import { setCredentials, setUser, setProject } from "@/redux/services/auth/auth";
 import { streamSignup, SignupApiError } from "@/lib/api/signupStream";
 import { getJwtExpiryMs } from "@/utils/jwt";
 import { ONBOARDING_ANSWERS_STORAGE_KEY, StoredOnboardingAnswers } from "@/constants/onboarding";
@@ -228,6 +228,7 @@ export default function SignupPage() {
             projectId: event.project?.project_id,
           })
         );
+        dispatch(setProject(event.project ?? null));
 
         sessionStorage.removeItem(ONBOARDING_ANSWERS_STORAGE_KEY);
         // We already have the real outcome — don't make the user sit through

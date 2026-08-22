@@ -6,18 +6,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/common/Logo";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
-import { useSignInMutation } from "@/redux/services/auth/auth";
-import { useLazyGetProfileInfoQuery } from "@/redux/services/auth/profileInfo";
+import { useAppDispatch } from "@/redux/hooks";
+import { setCredentials, setUser, setProject } from "@/redux/services/auth/auth";
+import { streamLogin, LoginApiError } from "@/lib/api/loginStream";
+import { getJwtExpiryMs } from "@/utils/jwt";
 import { Suspense } from "react";
 import { toast } from "@/components/snakbar";
 
 function LoginContent() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const verified = searchParams.get("verified");
 
-  const [signIn, { isLoading }] = useSignInMutation();
-  const [fetchProfileInfo] = useLazyGetProfileInfoQuery();
+  const [isLoading, setIsLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -62,41 +64,72 @@ function LoginContent() {
 
     if (!validateForm()) return;
 
+    setIsLoading(true);
+
     try {
-      setIsRedirecting(true);
+      await streamLogin(
+        { email: formData.email, password: formData.password },
+        (event) => {
+          if (event.type === "step") return; // login is fast — no progress UI needed
 
-      const result = await signIn({
-        email: formData.email,
-        password: formData.password,
-      }).unwrap();
+          // Final "result" event — the real source of truth for success/failure.
+          if (event.statusCode !== 200 || !event.tokens || !event.sub) {
+            throw new LoginApiError(event.error || "Login failed", event.statusCode);
+          }
 
-      // Fetch full profile info from API (onboarding_status, image, gender, etc.)
-      const profileData = await fetchProfileInfo().unwrap();
+          setIsRedirecting(true);
 
-      // Save exactly what the profile API returns to UserData (plus userId for auth)
-      localStorage.setItem("UserData", JSON.stringify({
-        user: { ...profileData, userId: result.user.userId },
-        tokens: result.tokens,
-      }));
+          // Only the access token is kept — id/refresh tokens aren't used anywhere in the app
+          dispatch(
+            setCredentials({
+              user: {
+                email: formData.email,
+                userId: event.sub,
+              },
+              tokens: {
+                accessToken: event.tokens.accessToken,
+                expiresAt: getJwtExpiryMs(event.tokens.accessToken),
+              },
+            })
+          );
+          dispatch(
+            setUser({
+              email: formData.email,
+              userId: event.sub,
+              onboardingStatus: false,
+              projectId: event.project?.project_id,
+            })
+          );
+          dispatch(setProject(event.project ?? null));
 
-      // onboarding_status true → not yet done → go to onboarding
-      // onboarding_status false → completed → go to dashboard
-      router.push(profileData.onboarding_status === false ? "/dashboard" : "/onboarding");
+          toast.success("Logged in successfully!");
+          router.push("/dashboard");
+        }
+      );
     } catch (error: any) {
-      setIsRedirecting(false);
       console.error("Login error:", error);
 
-      const errorMessage = error?.error || error?.message || "An error occurred";
+      const errorMessage = error?.message || "An error occurred";
 
-      if (errorMessage.includes("Incorrect username or password")) {
-        toast.error("Invalid email or password");
-      } else if (errorMessage.includes("User is not confirmed")) {
-        toast.error("Please verify your email before logging in");
-      } else if (errorMessage.includes("User does not exist")) {
+      if (error instanceof LoginApiError && error.statusCode === 404) {
+        toast.error(
+          <span>
+            No account found with this email.{" "}
+            <Link href="/auth/signup" className="underline text-[var(--gold-primary)]">
+              Sign up instead
+            </Link>
+          </span>
+        );
         setErrors({ email: "No account found with this email" });
+      } else if (error instanceof LoginApiError && error.statusCode === 401) {
+        toast.error("Invalid email or password");
+      } else if (error instanceof LoginApiError && error.statusCode === 403) {
+        toast.error("Please verify your email before logging in");
       } else {
         toast.error(errorMessage);
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -270,19 +303,6 @@ function LoginContent() {
               {isLoading || isRedirecting ? "Logging in..." : "Login"}
             </button>
           </form>
-
-          {/* Footer */}
-          <div className="mt-4 text-center">
-            <p className="text-gray-400 text-[0.78rem]">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/signup"
-                className="text-[var(--gold-primary)] hover:text-[var(--gold-light)] font-semibold transition-colors"
-              >
-                Sign up
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>

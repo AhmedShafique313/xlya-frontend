@@ -4,6 +4,8 @@
 // the Cognito user, confirms it, signs it in, saves onboarding answers, and
 // provisions the project — then emits one final "result" event carrying
 // the session tokens.
+import type { ProjectRecord } from "@/redux/services/auth/auth";
+
 const SIGNUP_ONBOARDING_API_URL =
   "https://q1qhgitk2a.execute-api.us-east-1.amazonaws.com/dev/xlya-dev-users-signup-api";
 
@@ -48,12 +50,7 @@ export interface SignupStreamResultEvent {
     refreshToken: string;
   };
   sub?: string;
-  project?: {
-    project_id?: string;
-    project_name?: string;
-    website_url?: string;
-    created_at?: string;
-  };
+  project?: ProjectRecord;
 }
 
 export type SignupStreamEvent = SignupStreamStepEvent | SignupStreamResultEvent;
@@ -77,11 +74,15 @@ export class SignupApiError extends Error {
 // transport's, so it can target a fixed total animation length regardless
 // of how many steps come back.
 
-// How long we'll wait with no new bytes on the wire before giving up. API
-// Gateway's Lambda-proxy integration hard-kills connections at 29s, so a
-// stall usually means that already happened; this turns a silent infinite
-// hang into a recoverable error instead of a permanently frozen screen.
-const INACTIVITY_TIMEOUT_MS = 35000;
+// How long we'll wait with no new bytes on the wire before giving up. The
+// signup API Gateway integration's timeout was raised to 900s specifically
+// to give the NVIDIA ICP/competitor call (with its own retries) room to
+// finish — worst case that's 3 attempts x 30s internal timeout each (~90s),
+// plus a few seconds for the rest of the flow, so this needs real margin
+// above that. This turns a genuine backend hang into a recoverable error
+// instead of a permanently frozen screen, without cutting off a signup
+// that's still legitimately working through NVIDIA retries.
+const INACTIVITY_TIMEOUT_MS = 150000;
 
 export async function streamSignup(
   payload: SignupOnboardingPayload,

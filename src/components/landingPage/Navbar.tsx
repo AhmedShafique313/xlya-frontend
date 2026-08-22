@@ -92,6 +92,26 @@ const Navbar = ({ showNavLinks = true }: NavbarProps) => {
                             </motion.button>
                         )}
 
+                        <Link href="/auth/login">
+                            <motion.span
+                                whileTap={{ scale: 0.95 }}
+                                className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200 text-xs font-medium"
+                            >
+                                <svg
+                                    className="h-3.5 w-3.5"
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+                                </svg>
+                                Login
+                            </motion.span>
+                        </Link>
+
                         <motion.div
                             className="hidden md:block flex-shrink-0"
                             initial={{ opacity: 0, x: 12 }}

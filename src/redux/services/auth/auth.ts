@@ -18,6 +18,53 @@ import {
 
 /* ---------- Types ---------- */
 
+// Mirrors the project item shape returned by the signup/login lambdas
+// (xlya-dev-projects-table) — icp/competitors/lighthouse_metrics/
+// website_information are only present when a websiteUrl was given at
+// signup; null otherwise. Kept snake_case to match the API/DB directly
+// rather than translating to camelCase, since this is read-only display
+// data, not something the frontend mutates and sends back.
+export interface ProjectRecord {
+  sub: string;
+  project_id: string;
+  project_name: string;
+  website_url: string | null;
+  project_onboarding_status?: boolean;
+  project_space?: unknown;
+  isDefault?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  website_information?: {
+    pages_fetched: number;
+    pages: Array<{
+      url: string;
+      title?: string | null;
+      meta_description?: string | null;
+      word_count?: number;
+      headings?: { h1: number; h2: number; h3: number };
+      images?: { total: number; missing_alt: number };
+      links?: { total: number };
+    }>;
+  } | null;
+  lighthouse_metrics?: {
+    is_estimate: boolean;
+    note: string;
+    seo_score: number;
+    performance_score: number;
+    accessibility_score: number;
+    best_practices_score: number;
+    load_time_ms: number;
+  } | null;
+  icp?: {
+    target_audience: string;
+    demographics?: { age_range?: string; role_titles?: string[]; company_size?: string };
+    pain_points?: string[];
+    motivations?: string[];
+    buying_triggers?: string[];
+  } | null;
+  competitors?: Array<{ name: string; reason: string }> | null;
+}
+
 interface AuthState {
   user: {
     email: string;
@@ -34,7 +81,9 @@ interface AuthState {
     age?: number;
     socialLinks?: Record<string, string>;
     projectId?: string;
+    emailVerified?: boolean;
   } | null;
+  project: ProjectRecord | null;
   isAuthenticated: boolean;
   // Only the access token is persisted — it's the only one anything in this
   // app actually sends. expiresAt (ms epoch, from the token's own `exp`
@@ -75,6 +124,7 @@ interface UserSession {
 
 const initialState: AuthState = {
   user: null,
+  project: null,
   isAuthenticated: false,
   tokens: {
     accessToken: null,
@@ -112,11 +162,40 @@ const authSlice = createSlice({
         localStorage.setItem("UserData", JSON.stringify({
           user: action.payload,
           tokens: state.tokens,
+          project: state.project,
+        }));
+      }
+    },
+    setEmailVerified(state, action: PayloadAction<boolean>) {
+      if (state.user) {
+        state.user.emailVerified = action.payload;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("UserData", JSON.stringify({
+            user: state.user,
+            tokens: state.tokens,
+            project: state.project,
+          }));
+        }
+      }
+    },
+    // The full project record (icp/competitors/lighthouse_metrics/
+    // website_information + the new project_onboarding_status/project_space/
+    // isDefault/updated_at columns) as returned directly by the signup/login
+    // lambdas — dashboard analytics reads straight from this rather than
+    // making a separate fetch, since login/signup already deliver it.
+    setProject(state, action: PayloadAction<ProjectRecord | null>) {
+      state.project = action.payload;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("UserData", JSON.stringify({
+          user: state.user,
+          tokens: state.tokens,
+          project: action.payload,
         }));
       }
     },
     clearCredentials(state) {
       state.user = null;
+      state.project = null;
       state.tokens = {
         accessToken: null,
         expiresAt: null,
@@ -155,8 +234,10 @@ const authSlice = createSlice({
               age: u.age,
               socialLinks: u.social_links ?? u.socialLinks,
               projectId: u.project_id ?? u.projectId,
+              emailVerified: u.email_verified ?? u.emailVerified,
             };
             state.tokens = data.tokens;
+            state.project = data.project ?? null;
             state.isAuthenticated = true;
           } catch (error) {
             console.error("Error loading user data from localStorage:", error);
@@ -167,7 +248,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setTokens, setUser, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
+export const { setCredentials, setTokens, setUser, setEmailVerified, setProject, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
 /* ---------- RTK Query (Cognito) ---------- */

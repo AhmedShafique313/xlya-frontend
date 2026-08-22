@@ -2,6 +2,8 @@
 
 import { Archivo } from "next/font/google";
 import Logo from "@/components/common/Logo";
+import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate";
+import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
 import type { ReactNode } from "react";
 
 const archivo = Archivo({
@@ -322,6 +324,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          <EmailVerificationGate>
+          <MarketAnalysis />
           {/* KPI cards */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             {kpis.map((k) => (
@@ -579,6 +583,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+          </EmailVerificationGate>
         </main>
       </div>
     </div>

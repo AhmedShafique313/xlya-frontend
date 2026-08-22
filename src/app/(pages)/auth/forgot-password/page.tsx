@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/common/Logo";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
 import Button from "@/components/common/Button";
-import { useResetPasswordMutation, useConfirmResetPasswordMutation } from "@/redux/services/auth/auth";
+import { streamForgotPassword, ForgotPasswordApiError } from "@/lib/api/forgotPasswordStream";
 import { toast } from "@/components/snakbar";
 
 type Step = "email" | "otp" | "password";
@@ -63,8 +63,8 @@ function ForgotPasswordContent() {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [sendResetCode, { isLoading: isSendingCode }] = useResetPasswordMutation();
-  const [confirmReset, { isLoading: isResetting }] = useConfirmResetPasswordMutation();
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   /* ─── Step 1: Send OTP to email ─── */
   const handleSendCode = async (e: React.FormEvent) => {
@@ -74,20 +74,24 @@ function ForgotPasswordContent() {
     if (!email.trim()) { setEmailError("Email is required"); return; }
     if (!/\S+@\S+\.\S+/.test(email)) { setEmailError("Email is invalid"); return; }
 
+    setIsSendingCode(true);
     try {
-      await sendResetCode({ email }).unwrap();
+      await streamForgotPassword({ action: "request", email }, (event) => {
+        if (event.type !== "result") return;
+        if (event.statusCode !== 200) {
+          throw new ForgotPasswordApiError(event.error || "Failed to send reset code", event.statusCode);
+        }
+      });
       setStep("otp");
     } catch (err: any) {
-      const msg = err?.error || err?.message || "Failed to send reset code";
-      if (
-        msg.includes("User does not exist") ||
-        msg.includes("Username/client id combination not found") ||
-        msg.includes("UserNotFoundException")
-      ) {
+      const msg = err?.message || "Failed to send reset code";
+      if (err instanceof ForgotPasswordApiError && err.statusCode === 404) {
         setEmailError("No account found with this email");
       } else {
         toast.error(msg);
       }
+    } finally {
+      setIsSendingCode(false);
     }
   };
 
@@ -113,38 +117,53 @@ function ForgotPasswordContent() {
     if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters"); return; }
     if (newPassword !== confirmPassword) { setPasswordError("Passwords do not match"); return; }
 
+    setIsResetting(true);
     try {
-      await confirmReset({ email, code: savedOtp, newPassword }).unwrap();
+      await streamForgotPassword(
+        { action: "confirm", email, code: savedOtp, newPassword },
+        (event) => {
+          if (event.type !== "result") return;
+          if (event.statusCode !== 200) {
+            throw new ForgotPasswordApiError(event.error || "Failed to reset password", event.statusCode);
+          }
+        }
+      );
       toast.success("Password reset successfully! Please login with your new password.");
       router.push("/auth/login");
     } catch (err: any) {
-      const msg = err?.error || err?.message || "Failed to reset password";
-      if (
-        msg.includes("Invalid verification code") ||
-        msg.includes("CodeMismatchException") ||
-        msg.includes("ExpiredCodeException")
-      ) {
+      const msg = err?.message || "Failed to reset password";
+      const statusCode = err instanceof ForgotPasswordApiError ? err.statusCode : null;
+
+      if (statusCode === 400 && /code/i.test(msg)) {
         toast.error("Invalid or expired code. Please request a new one.");
         setOtpDigits(["", "", "", "", "", ""]);
         setSavedOtp("");
         setStep("email");
       } else if (msg.toLowerCase().includes("password")) {
-        setPasswordError(
-          "Password must contain uppercase, lowercase, numbers, and special characters"
-        );
+        setPasswordError(msg);
       } else {
         toast.error(msg);
       }
+    } finally {
+      setIsResetting(false);
     }
   };
 
   /* ─── Resend OTP ─── */
   const handleResendCode = async () => {
+    setIsSendingCode(true);
     try {
-      await sendResetCode({ email }).unwrap();
+      await streamForgotPassword({ action: "request", email }, (event) => {
+        if (event.type !== "result") return;
+        if (event.statusCode !== 200) {
+          throw new ForgotPasswordApiError(event.error || "Failed to resend code", event.statusCode);
+        }
+      });
       toast.success("A new code has been sent to your email.");
     } catch (err: any) {
-      toast.error(err?.error || "Failed to resend code. Please try again.");
+      toast.error(err?.message || "Failed to resend code. Please try again.");
+    } finally {
+      setIsSendingCode(false);
     }
   };
 

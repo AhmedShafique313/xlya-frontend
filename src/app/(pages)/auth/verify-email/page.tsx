@@ -1,35 +1,29 @@
-// src/app/verify-email/page.tsx
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useConfirmSignUpMutation, useResendSignUpCodeMutation } from "@/redux/services/auth/auth";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo from "@/components/common/Logo";
 import AuthFeaturesSidebar from "@/components/auth/AuthFeaturesSidebar";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { setEmailVerified } from "@/redux/services/auth/auth";
+import { streamEmailVerification, EmailVerificationApiError } from "@/lib/api/emailVerificationStream";
+import { toast } from "@/components/snakbar";
 
-function VerifyEmailContent() {
+export default function VerifyEmailPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
-  
-  const [confirmSignUp, { isLoading }] = useConfirmSignUpMutation();
-  const [resendCode, { isLoading: isResending }] = useResendSignUpCodeMutation();
-  
+  const dispatch = useAppDispatch();
+  const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
+  const email = useAppSelector((state) => state.auth.user?.email);
+
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
-  
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  useEffect(() => {
-    if (!email) {
-      setError("Email address is required. Please sign up again.");
-    }
-  }, [email]);
-
-  // Focus first input on mount
   useEffect(() => {
     if (inputRefs.current[0]) {
       inputRefs.current[0].focus();
@@ -37,7 +31,6 @@ function VerifyEmailContent() {
   }, []);
 
   const handleChange = (index: number, value: string) => {
-    // Only allow digits
     if (value && !/^\d$/.test(value)) return;
 
     const newCode = [...code];
@@ -45,27 +38,21 @@ function VerifyEmailContent() {
     setCode(newCode);
     setError("");
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Handle backspace
     if (e.key === "Backspace") {
       if (!code[index] && index > 0) {
-        // If current input is empty, focus previous input
         inputRefs.current[index - 1]?.focus();
       } else {
-        // Clear current input
         const newCode = [...code];
         newCode[index] = "";
         setCode(newCode);
       }
-    }
-    // Handle arrow keys
-    else if (e.key === "ArrowLeft" && index > 0) {
+    } else if (e.key === "ArrowLeft" && index > 0) {
       inputRefs.current[index - 1]?.focus();
     } else if (e.key === "ArrowRight" && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -75,13 +62,12 @@ function VerifyEmailContent() {
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    
+
     if (pastedData) {
       const newCode = pastedData.split("").concat(Array(6).fill("")).slice(0, 6);
       setCode(newCode);
       setError("");
-      
-      // Focus the last filled input or the next empty one
+
       const nextIndex = Math.min(pastedData.length, 5);
       inputRefs.current[nextIndex]?.focus();
     }
@@ -93,8 +79,8 @@ function VerifyEmailContent() {
 
     const verificationCode = code.join("");
 
-    if (!email) {
-      setError("Email address is missing. Please sign up again.");
+    if (!accessToken) {
+      setError("Your session has expired. Please log in again.");
       return;
     }
 
@@ -103,42 +89,60 @@ function VerifyEmailContent() {
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      await confirmSignUp({ email, code: verificationCode }).unwrap();
-      setSuccess(true);
-      
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push("/auth/login?verified=true");
-      }, 2000);
+      await streamEmailVerification(accessToken, { action: "confirm", code: verificationCode }, (event) => {
+        if (event.type !== "result") return;
+        if (event.statusCode !== 200) {
+          throw new EmailVerificationApiError(event.error || "Invalid verification code", event.statusCode);
+        }
+
+        dispatch(setEmailVerified(true));
+        setSuccess(true);
+        toast.success("Email verified successfully!");
+
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1500);
+      });
     } catch (err: any) {
       console.error("Verification error:", err);
-      const errorMessage = err?.error || err?.message || "Invalid verification code";
+      const errorMessage = err?.message || "Invalid verification code";
       setError(errorMessage);
-      // Clear the code on error
+      toast.error(errorMessage);
       setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
-    if (!email) return;
-    
+    if (!accessToken || isResending) return;
+
+    setIsResending(true);
     try {
-      await resendCode({ email }).unwrap();
-      setResendSuccess(true);
+      await streamEmailVerification(accessToken, { action: "send" }, (event) => {
+        if (event.type !== "result") return;
+        if (event.statusCode !== 200) {
+          throw new EmailVerificationApiError(event.error || "Failed to resend code", event.statusCode);
+        }
+      });
+      toast.success("Code sent successfully!");
       setError("");
-      setTimeout(() => setResendSuccess(false), 3000);
     } catch (err: any) {
-      setError(err?.error || "Failed to resend code. Please try again.");
+      toast.error(err?.message || "Failed to resend code. Please try again.");
+    } finally {
+      setIsResending(false);
     }
   };
 
-  if (!email) {
+  if (!accessToken) {
     return (
       <div className="min-h-screen h-screen flex relative overflow-hidden">
         <AuthFeaturesSidebar />
-        
+
         <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-9 relative z-10">
           <div className="w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 my-6">
             <div className="lg:hidden mb-4 text-center">
@@ -146,17 +150,17 @@ function VerifyEmailContent() {
                 <Logo size="sm" className="mx-auto" />
               </Link>
             </div>
-            
+
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-4">Email Required</h2>
+              <h2 className="text-2xl font-bold text-white mb-4">Session Required</h2>
               <p className="text-gray-400 text-[0.78rem] mb-6">
-                No email address provided. Please sign up again.
+                Please log in to verify your email.
               </p>
               <Link
-                href="/auth/signup"
+                href="/auth/login"
                 className="inline-block bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-secondary)] text-black font-semibold px-6 py-2.5 rounded-lg hover:shadow-xl hover:shadow-[var(--gold-primary)]/20 transition-all duration-300 text-[0.78rem]"
               >
-                Back to Sign Up
+                Go to Login
               </Link>
             </div>
           </div>
@@ -169,7 +173,7 @@ function VerifyEmailContent() {
     return (
       <div className="min-h-screen h-screen flex relative overflow-hidden">
         <AuthFeaturesSidebar />
-        
+
         <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-9 relative z-10">
           <div className="w-full max-w-md bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl p-6 border border-white/10 my-6">
             <div className="lg:hidden mb-4 text-center">
@@ -177,7 +181,7 @@ function VerifyEmailContent() {
                 <Logo size="sm" className="mx-auto" />
               </Link>
             </div>
-            
+
             <div className="text-center">
               <div className="mb-6">
                 <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +190,7 @@ function VerifyEmailContent() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Email Verified!</h2>
               <p className="text-gray-400 text-[0.78rem] mb-6">
-                Your email has been successfully verified. Redirecting to login...
+                Redirecting to your dashboard...
               </p>
             </div>
           </div>
@@ -214,8 +218,13 @@ function VerifyEmailContent() {
           <div className="mb-4">
             <h2 className="text-xl font-bold text-white mb-2">Verify Your Email</h2>
             <p className="text-gray-400 text-[0.78rem]">
-              We've sent a verification code to{" "}
-              <span className="text-[var(--gold-primary)] font-medium">{email}</span>
+              We&apos;ve sent a verification code to{" "}
+              {email ? (
+                <span className="text-[var(--gold-primary)] font-medium">{email}</span>
+              ) : (
+                "your email"
+              )}
+              .
             </p>
           </div>
 
@@ -226,20 +235,13 @@ function VerifyEmailContent() {
             </div>
           )}
 
-          {/* Resend Success Message */}
-          {resendSuccess && (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/50 rounded-lg">
-              <p className="text-green-400 text-[0.78rem] text-center">Code sent successfully!</p>
-            </div>
-          )}
-
           {/* Verification Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[0.78rem] font-medium text-gray-300 mb-2">
                 Verification Code
               </label>
-              
+
               {/* 6 Input Fields */}
               <div className="flex gap-2 justify-between">
                 {code.map((digit, index) => (
@@ -260,7 +262,7 @@ function VerifyEmailContent() {
                   />
                 ))}
               </div>
-              
+
               <p className="text-gray-500 text-[0.72rem] mt-2">
                 Enter the 6-digit code sent to your email
               </p>
@@ -289,7 +291,7 @@ function VerifyEmailContent() {
           {/* Resend Code */}
           <div className="mt-4 text-center">
             <p className="text-gray-400 text-[0.78rem] mb-2">
-              Didn't receive the code?
+              Didn&apos;t receive the code?
             </p>
             <button
               type="button"
@@ -303,27 +305,15 @@ function VerifyEmailContent() {
 
           {/* Footer */}
           <div className="mt-4 text-center">
-            <Link 
-              href="/auth/login" 
+            <Link
+              href="/dashboard"
               className="text-gray-400 text-[0.78rem] hover:text-[var(--gold-primary)] transition-colors"
             >
-              Back to Login
+              Back to Dashboard
             </Link>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center  justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    }>
-      <VerifyEmailContent />
-    </Suspense>
   );
 }
