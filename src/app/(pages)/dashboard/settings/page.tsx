@@ -390,19 +390,19 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">First name</label>
                   <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
-                    {firstName || "—"}
+                    {firstName || "Not set"}
                   </div>
                 </div>
                 <div>
                   <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Last name</label>
                   <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
-                    {lastName || "—"}
+                    {lastName || "Not set"}
                   </div>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Email</label>
                   <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
-                    {email || "—"}
+                    {email || "Not set"}
                   </div>
                 </div>
                 <div className="sm:col-span-2">

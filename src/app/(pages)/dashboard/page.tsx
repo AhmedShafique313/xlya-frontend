@@ -75,66 +75,9 @@ const integrations = [
 export default function DashboardPage() {
   return (
     <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-24 text-[#f4f0e8]`}>
-      <div className="w-full max-w-[1200px] min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl overflow-hidden">
+      <div className="w-full max-w-[1440px] min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl overflow-hidden">
         {/* Main */}
         <main className="min-w-0 px-9 pt-7 pb-12">
-          {/* Topbar */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5 border border-[#232323] rounded-lg px-3.5 py-2.5 w-[340px]">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <span className="text-[13px] text-[#5c5c5c]">Search</span>
-              <span className="ml-auto text-[11px] font-medium text-[#4d4d4d]">⌘ + F</span>
-            </div>
-            <div className="flex items-center gap-4.5">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" strokeWidth="2">
-                <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-              <div className="w-px h-[22px] bg-[#232323]" />
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 rounded-full"
-                  style={{ background: "linear-gradient(135deg, var(--gold-primary), var(--gold-secondary))" }}
-                />
-                <div>
-                  <div className="text-[12.5px] font-semibold leading-tight text-[#f4f0e8]">Elena Voss</div>
-                  <div className="text-[11px] leading-tight text-[#6b6b6b]">Studio Lead</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-5.5">
-            <h1 className="text-2xl font-bold text-[#f4f0e8]">Dashboard</h1>
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2 border border-[#232323] rounded-lg px-3.5 py-2 text-[12.5px] font-medium text-[#9a9a9a]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                Oct 18 – Nov 18
-              </div>
-              <div className="border border-[#232323] rounded-lg px-3.5 py-2 text-[12.5px] font-medium text-[#9a9a9a]">
-                Monthly ▾
-              </div>
-              <div className="border border-[#232323] rounded-lg px-3.5 py-2 text-[12.5px] font-medium text-[#9a9a9a]">
-                Filter
-              </div>
-              <div
-                className="rounded-lg px-4 py-2 text-[12.5px] font-semibold text-[#0a0a0a]"
-                style={{ background: "linear-gradient(135deg, var(--gold-primary), var(--gold-secondary))" }}
-              >
-                Export
-              </div>
-            </div>
-          </div>
-
           <EmailVerificationGate>
           <MarketAnalysis />
           {/* KPI cards */}

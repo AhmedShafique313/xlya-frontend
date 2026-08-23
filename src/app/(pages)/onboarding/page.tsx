@@ -28,7 +28,7 @@ const BUSINESS_TYPE_OPTIONS = [
 ];
 
 const CHALLENGE_OPTIONS = [
-  { value: "content", label: "Creating enough content", description: "Ads, posts, UGC, copy — never enough hours" },
+  { value: "content", label: "Creating enough content", description: "Ads, posts, UGC, copy, never enough hours" },
   { value: "leads", label: "Finding and converting leads", description: "Traffic, outreach, and turning visitors into buyers" },
   { value: "ops", label: "Manual, repetitive work", description: "Tasks that eat my week but shouldn't" },
   { value: "scale", label: "Scaling without hiring", description: "Do more with the team I already have" },
@@ -104,11 +104,29 @@ const STEPS: StepConfig[] = [
   {
     id: "website",
     type: "website",
-    question: "Your website (optional)",
+    question: "Enter your website url",
     subtitle: "Drop your URL and we'll analyze your site and pre-fill your project.",
     field: "website",
   },
 ];
+
+// Website stays optional (an empty value is always allowed), but anything the
+// user actually types must look like a real URL — this is what used to catch
+// silently: proceeding with a garbage string like "asdf" that isn't a
+// website at all. Loosely accepts a bare domain ("example.com") or a full
+// URL with protocol, and requires at least one dot in the hostname so a
+// single word isn't treated as valid.
+function isValidWebsiteUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const url = new URL(withProtocol);
+    return url.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
 
 // ─── Page component ───────────────────────────────────────────────────────────
 
@@ -141,9 +159,14 @@ export default function OnboardingPage() {
   };
 
   const canProceed = (): boolean => {
-    // Website is optional, but only via the explicit "Skip" link — the
-    // Finish/Next button still requires a value like every other step.
     const val = getCurrentValue();
+    // Website is now a required field, same as every other step — the user
+    // explicitly reported that leaving it empty and clicking Finish still
+    // advanced to signup as a bug. It must also actually look like a URL,
+    // not just be non-empty.
+    if (stepConfig?.type === "website") {
+      return typeof val === "string" && val.trim() !== "" && isValidWebsiteUrl(val);
+    }
     return typeof val === "string" && val.trim() !== "";
   };
 
@@ -204,19 +227,6 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSkip = () => {
-    // Update Redux state to mark onboarding as completed
-    if (user) {
-      dispatch(
-        setUser({
-          ...user,
-          onboardingStatus: false,
-        })
-      );
-    }
-    router.push("/dashboard");
-  };
-
   // Loading state while session is fetched on refresh
   if (sessionLoading) {
     return (
@@ -233,17 +243,6 @@ export default function OnboardingPage() {
         <Link href="/">
           <Logo size="sm" />
         </Link>
-        {screen === "questions" && currentStep > 0 && (
-          <button
-            onClick={handleSkip}
-            className="text-gray-500 hover:text-gray-300 text-sm transition-colors duration-200 flex items-center gap-1"
-          >
-            Skip for now
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* Main content — fills remaining height, no page scroll */}
@@ -290,19 +289,15 @@ export default function OnboardingPage() {
                     placeholder="https://yourwebsite.com"
                     value={answers.website}
                     onChange={(e) => handleSelect(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[var(--gold-primary)] transition-colors duration-200"
+                    className={`w-full rounded-xl border bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none transition-colors duration-200 ${
+                      answers.website.trim() && !isValidWebsiteUrl(answers.website)
+                        ? "border-red-500/60 focus:border-red-500"
+                        : "border-white/10 focus:border-[var(--gold-primary)]"
+                    }`}
                   />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleSelect("");
-                      handleNext("");
-                    }}
-                    className="mt-3 text-[var(--gold-primary)] hover:text-[var(--gold-light)] text-sm font-medium transition-colors duration-200"
-                  >
-                    Skip — I&apos;ll add it later
-                  </button>
+                  {answers.website.trim() && !isValidWebsiteUrl(answers.website) && (
+                    <p className="text-red-400 text-xs mt-2">Enter a valid website URL, e.g. yourbusiness.com</p>
+                  )}
                 </div>
               ) : (
                 <QuestionStep

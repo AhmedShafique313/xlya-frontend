@@ -15,7 +15,7 @@ const fjallaOne = Fjalla_One({
 
 export const metadata: Metadata = {
   title: "Xlya",
-  description: "Smart Apps & Multi-Purpose Agents — Xlya delivers productivity apps and intelligent agents to streamline your work.",
+  description: "Smart Apps & Multi-Purpose Agents. Xlya delivers productivity apps and intelligent agents to streamline your work.",
 };
 
 export default function RootLayout({

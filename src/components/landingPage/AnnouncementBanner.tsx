@@ -1,5 +1,5 @@
 const SEGMENT =
-  "\u00a0\u00a0\u2736\u00a0\u00a0 Coming Soon — Stay Tuned \u00a0\u00a0\u2736\u00a0\u00a0 Something Big Is on the Way \u00a0\u00a0\u2736\u00a0\u00a0 Launching Soon \u00a0\u00a0\u2736\u00a0\u00a0 Get Ready \u00a0\u00a0\u2736\u00a0\u00a0 Exciting Things Ahead \u00a0\u00a0\u2736\u00a0\u00a0 We\u2019re Almost Here";
+  "\u00a0\u00a0\u2736\u00a0\u00a0 Coming Soon, Stay Tuned \u00a0\u00a0\u2736\u00a0\u00a0 Something Big Is on the Way \u00a0\u00a0\u2736\u00a0\u00a0 Launching Soon \u00a0\u00a0\u2736\u00a0\u00a0 Get Ready \u00a0\u00a0\u2736\u00a0\u00a0 Exciting Things Ahead \u00a0\u00a0\u2736\u00a0\u00a0 We\u2019re Almost Here";
 
 const AnnouncementBanner = () => {
   return (
