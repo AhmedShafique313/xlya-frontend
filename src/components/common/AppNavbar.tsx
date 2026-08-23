@@ -148,11 +148,13 @@ const AppNavbar = () => {
                                         <p className="text-xs font-semibold text-white truncate">{displayName}</p>
                                     </div>
                                     <div className="py-1.5">
-                                        <button
-                                            className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
+                                        <Link
+                                            href="/dashboard/settings"
+                                            onClick={() => setIsProfileOpen(false)}
+                                            className="block w-full text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
                                         >
                                             Settings
-                                        </button>
+                                        </Link>
                                         <button
                                             className="w-full text-left px-3.5 py-2 text-xs font-medium text-[var(--gold-primary)] hover:text-[var(--gold-light)] transition-colors duration-200"
                                         >
