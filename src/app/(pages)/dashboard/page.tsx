@@ -1,104 +1,14 @@
 "use client";
 
 import { Archivo } from "next/font/google";
-import Logo from "@/components/common/Logo";
 import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate";
 import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
-import type { ReactNode } from "react";
 
 const archivo = Archivo({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-archivo",
 });
-
-const navGeneral = [
-  {
-    label: "Payments",
-    icon: (
-      <>
-        <rect x="1" y="4" width="22" height="16" />
-        <line x1="1" y1="10" x2="23" y2="10" />
-      </>
-    ),
-  },
-  {
-    label: "Customers",
-    icon: (
-      <>
-        <circle cx="9" cy="7" r="4" />
-        <path d="M2 21v-2a4 4 0 014-4h6a4 4 0 014 4v2" />
-      </>
-    ),
-  },
-  {
-    label: "Message",
-    icon: (
-      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
-    ),
-  },
-];
-
-const navTools = [
-  {
-    label: "Model Library",
-    icon: (
-      <>
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
-      </>
-    ),
-  },
-  {
-    label: "API Keys",
-    icon: (
-      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-    ),
-  },
-  {
-    label: "Analytics",
-    icon: (
-      <>
-        <path d="M3 3v18h18" />
-        <path d="M18 17V9" />
-        <path d="M13 17V5" />
-        <path d="M8 17v-3" />
-      </>
-    ),
-  },
-  {
-    label: "Automation",
-    icon: <path d="M12 2l9 4.5v9L12 20l-9-4.5v-9z" />,
-    badge: "BETA",
-  },
-];
-
-const navSupport = [
-  {
-    label: "Settings",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
-      </>
-    ),
-  },
-  {
-    label: "Security",
-    icon: <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" />,
-  },
-  {
-    label: "Help",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="10" />
-        <path d="M9.09 9a3 3 0 115.83 1c0 2-3 2-3 4" />
-        <line x1="12" y1="17" x2="12" y2="17" />
-      </>
-    ),
-  },
-];
 
 const kpis = [
   {
@@ -162,111 +72,12 @@ const integrations = [
   { name: "Slack", type: "Comms", rate: "60%", profit: "$310.10", initial: "S", iconBg: "#611f69" },
 ];
 
-function NavIcon({ children }: { children: ReactNode }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      {children}
-    </svg>
-  );
-}
-
 export default function DashboardPage() {
   return (
-    <div className={`${archivo.className} min-h-screen flex p-6 md:p-10 text-[#f4f0e8]`}>
-      <div className="flex flex-1 min-w-0 border border-[#1c1c1c] rounded-3xl overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-[248px] flex-none bg-black border-r border-[#1c1c1c] flex flex-col p-7">
-          <div className="flex items-center gap-2.5 mb-9">
-            <div
-              className="w-[30px] h-[30px] flex-none rounded-lg"
-              style={{ background: "linear-gradient(135deg, var(--gold-primary) 40%, var(--gold-secondary) 100%)" }}
-            />
-            <Logo size="sm" className="!text-[18px]" />
-          </div>
-
-          <div className="text-[11px] font-semibold tracking-[0.08em] text-[#6b6b6b] mb-2.5 ml-1">GENERAL</div>
-          <nav className="flex flex-col gap-0.5 mb-7">
-            <div
-              className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-r-md border-l-2"
-              style={{ background: "rgba(204,172,93,0.12)", borderColor: "var(--gold-primary)" }}
-            >
-              <span style={{ color: "var(--gold-primary)" }}>
-                <NavIcon>
-                  <rect x="3" y="3" width="7" height="9" />
-                  <rect x="14" y="3" width="7" height="5" />
-                  <rect x="14" y="12" width="7" height="9" />
-                  <rect x="3" y="16" width="7" height="5" />
-                </NavIcon>
-              </span>
-              <span className="text-[13.5px] font-medium text-[#f4f0e8]">Dashboard</span>
-            </div>
-            {navGeneral.map((item) => (
-              <div key={item.label} className="flex items-center gap-2.5 pl-3 pr-2.5 py-2.5">
-                <span className="text-[#7d7d7d]">
-                  <NavIcon>{item.icon}</NavIcon>
-                </span>
-                <span className="text-[13.5px] font-medium text-[#9a9a9a]">{item.label}</span>
-              </div>
-            ))}
-          </nav>
-
-          <div className="text-[11px] font-semibold tracking-[0.08em] text-[#6b6b6b] mb-2.5 ml-1">MODELS &amp; TOOLS</div>
-          <nav className="flex flex-col gap-0.5 mb-7">
-            {navTools.map((item) => (
-              <div key={item.label} className="flex items-center gap-2.5 pl-3 pr-2.5 py-2.5">
-                <span className="text-[#7d7d7d]">
-                  <NavIcon>{item.icon}</NavIcon>
-                </span>
-                <span className="text-[13.5px] font-medium text-[#9a9a9a]">{item.label}</span>
-                {item.badge && (
-                  <span
-                    className="ml-auto text-[9px] font-bold tracking-[0.04em] rounded-full border px-1.5 py-0.5"
-                    style={{ color: "var(--gold-secondary)", borderColor: "#3a3226" }}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            ))}
-          </nav>
-
-          <div className="text-[11px] font-semibold tracking-[0.08em] text-[#6b6b6b] mb-2.5 ml-1">SUPPORT</div>
-          <nav className="flex flex-col gap-0.5">
-            {navSupport.map((item) => (
-              <div key={item.label} className="flex items-center gap-2.5 pl-3 pr-2.5 py-2.5">
-                <span className="text-[#7d7d7d]">
-                  <NavIcon>{item.icon}</NavIcon>
-                </span>
-                <span className="text-[13.5px] font-medium text-[#9a9a9a]">{item.label}</span>
-              </div>
-            ))}
-          </nav>
-
-          <div className="mt-auto pt-6">
-            <div className="border border-[#232323] rounded-xl p-3.5 flex flex-col gap-2.5 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-[26px] h-[26px] flex-none rounded-lg"
-                  style={{ background: "linear-gradient(135deg, var(--gold-primary), var(--gold-secondary))" }}
-                />
-                <div className="text-[12.5px] font-semibold leading-tight text-[#f4f0e8]">Pro Workspace</div>
-              </div>
-              <div className="text-[11.5px] leading-snug text-[#7d7d7d]">
-                Unlimited generations &amp; priority compute
-              </div>
-            </div>
-            <button
-              className="w-full text-left rounded-lg border px-3 py-2.5 text-[12.5px] font-semibold tracking-wide"
-              style={{ borderColor: "var(--gold-primary)", color: "var(--gold-primary)" }}
-            >
-              Upgrade Plan
-            </button>
-            <div className="text-[10.5px] text-[#4d4d4d] mt-4">© 2026 xlya, Inc.</div>
-          </div>
-        </aside>
-
+    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-24 text-[#f4f0e8]`}>
+      <div className="w-full max-w-[1200px] min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl overflow-hidden">
         {/* Main */}
-        <main className="flex-1 min-w-0 px-9 pt-7 pb-12">
+        <main className="min-w-0 px-9 pt-7 pb-12">
           {/* Topbar */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5 border border-[#232323] rounded-lg px-3.5 py-2.5 w-[340px]">
