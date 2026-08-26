@@ -84,18 +84,38 @@ export class SignupApiError extends Error {
 // that's still legitimately working through NVIDIA retries.
 const INACTIVITY_TIMEOUT_MS = 150000;
 
+// Separate, much shorter timeout that only covers the initial connect (DNS
+// + TCP/TLS + CORS preflight + time-to-first-byte). INACTIVITY_TIMEOUT_MS
+// only guards reads that happen *after* a response has started arriving —
+// without this, a request that never reaches the backend at all (dropped
+// connection, hung preflight, flaky network) has no timeout whatsoever and
+// the initial `await fetch(...)` can hang indefinitely, leaving the
+// loading screen stuck forever with no error ever surfacing.
+const CONNECT_TIMEOUT_MS = 30000;
+
 export async function streamSignup(
   payload: SignupOnboardingPayload,
   onEvent: (event: SignupStreamEvent) => void
 ): Promise<void> {
   const controller = new AbortController();
 
-  const response = await fetch(SIGNUP_ONBOARDING_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  });
+  const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(SIGNUP_ONBOARDING_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Could not reach the server. Please check your connection and try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(connectTimeoutId);
+  }
 
   if (!response.ok || !response.body) {
     let message = "Signup failed";
@@ -111,16 +131,27 @@ export async function streamSignup(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  // Whether a final "result" event (the only authoritative success/failure
+  // signal) has actually been seen. If the stream ends — cleanly or not —
+  // without one, that must surface as an error instead of silently
+  // resolving, which previously left the caller (and the loading screen)
+  // waiting forever for an event that was never going to arrive.
+  let resultReceived = false;
 
   const handleLine = (line: string) => {
     const trimmed = line.trim();
     if (!trimmed) return;
 
+    let parsed: SignupStreamEvent;
     try {
-      onEvent(JSON.parse(trimmed));
+      parsed = JSON.parse(trimmed);
     } catch {
-      // malformed line — skip it
+      console.error("signupStream: skipping malformed NDJSON line", trimmed);
+      return;
     }
+
+    if (parsed.type === "result") resultReceived = true;
+    onEvent(parsed);
   };
 
   const readWithTimeout = async () => {
@@ -150,4 +181,8 @@ export async function streamSignup(
   }
 
   if (buffer.trim()) handleLine(buffer);
+
+  if (!resultReceived) {
+    throw new Error("Signup connection closed before completing. Please try again.");
+  }
 }
