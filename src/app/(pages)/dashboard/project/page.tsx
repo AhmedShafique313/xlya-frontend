@@ -342,7 +342,7 @@ export default function ProjectDetailsPage() {
   const initial = (nameDraft || displayProject.project_name || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-28 md:pt-40 lg:pt-48 text-[#f4f0e8]`}>
+    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px] text-[#f4f0e8]`}>
       <div className="w-full max-w-[1440px] min-w-0">
         {/* Header — editable project name, locked URL, business profile */}
         <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 md:p-7 mb-6">

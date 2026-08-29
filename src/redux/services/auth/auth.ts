@@ -65,6 +65,28 @@ export interface ProjectRecord {
   competitors?: Array<{ name: string; reason: string }> | null;
 }
 
+// Lightweight shape returned by the project-list-detail lambda's "list"
+// action — just enough to render the project switcher; full analytics
+// (icp/competitors/lighthouse_metrics) come from its "get" action instead,
+// fetched only for the one project the user actually selects.
+export interface ProjectSummary {
+  project_id: string;
+  project_name: string;
+  website_url: string | null;
+  isDefault: boolean;
+  project_onboarding_status: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+// Single most-recent streamed step from the project-list-detail lambda,
+// shown live in the dashboard's MiniTerminal — same {text,status} shape
+// MiniTerminal already renders elsewhere in the app.
+export interface ProjectActivityLine {
+  text: string;
+  status: "active" | "done" | "error";
+}
+
 interface AuthState {
   user: {
     email: string;
@@ -84,6 +106,11 @@ interface AuthState {
     emailVerified?: boolean;
   } | null;
   project: ProjectRecord | null;
+  // Not persisted to localStorage — refetched fresh from the
+  // project-list-detail lambda every time the dashboard navbar mounts, so
+  // this never goes stale across a long session.
+  projects: ProjectSummary[];
+  projectActivity: ProjectActivityLine | null;
   isAuthenticated: boolean;
   // Only the access token is persisted — it's the only one anything in this
   // app actually sends. expiresAt (ms epoch, from the token's own `exp`
@@ -125,6 +152,8 @@ interface UserSession {
 const initialState: AuthState = {
   user: null,
   project: null,
+  projects: [],
+  projectActivity: null,
   isAuthenticated: false,
   tokens: {
     accessToken: null,
@@ -193,9 +222,19 @@ const authSlice = createSlice({
         }));
       }
     },
+    // Populated by AppNavbar on mount (and refreshed after any project
+    // create/delete) from the project-list-detail lambda's "list" action.
+    setProjects(state, action: PayloadAction<ProjectSummary[]>) {
+      state.projects = action.payload;
+    },
+    setProjectActivity(state, action: PayloadAction<ProjectActivityLine | null>) {
+      state.projectActivity = action.payload;
+    },
     clearCredentials(state) {
       state.user = null;
       state.project = null;
+      state.projects = [];
+      state.projectActivity = null;
       state.tokens = {
         accessToken: null,
         expiresAt: null,
@@ -248,7 +287,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setTokens, setUser, setEmailVerified, setProject, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
+export const { setCredentials, setTokens, setUser, setEmailVerified, setProject, setProjects, setProjectActivity, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
 /* ---------- RTK Query (Cognito) ---------- */

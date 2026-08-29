@@ -3,6 +3,8 @@
 import { Archivo } from "next/font/google";
 import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate";
 import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
+import MiniTerminal from "@/components/common/MiniTerminal";
+import { useAppSelector } from "@/redux/hooks";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -73,12 +75,28 @@ const integrations = [
 ];
 
 export default function DashboardPage() {
+  // Real-time steps from the project-list-detail lambda (list your projects,
+  // load the selected one's full record) — populated by AppNavbar, which is
+  // where project loading/switching actually happens (it's mounted on every
+  // dashboard page), and rendered here as the dashboard's live activity feed.
+  const projectActivity = useAppSelector((state) => state.auth.projectActivity);
+
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-24 text-[#f4f0e8]`}>
+    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px] text-[#f4f0e8]`}>
       <div className="w-full max-w-[1440px] min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl overflow-hidden">
         {/* Main */}
         <main className="min-w-0 px-9 pt-7 pb-12">
           <EmailVerificationGate>
+          <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5 mb-4">
+            <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a] mb-3">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <polyline points="4 17 10 11 4 5" />
+                <line x1="12" y1="19" x2="20" y2="19" />
+              </svg>
+              Live Activity
+            </div>
+            <MiniTerminal line={projectActivity} idleLabel="Waiting for project activity…" />
+          </div>
           <MarketAnalysis />
           {/* KPI cards */}
           <div className="grid grid-cols-3 gap-4 mb-4">

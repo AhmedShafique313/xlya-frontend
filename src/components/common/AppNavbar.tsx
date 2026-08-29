@@ -1,15 +1,38 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { clearCredentials } from "@/redux/services/auth/auth";
+import { clearCredentials, setProject, setProjects, setProjectActivity, ProjectSummary, ProjectRecord } from "@/redux/services/auth/auth";
 import { streamLogout } from "@/lib/api/logoutStream";
 import { streamSettings, SettingsUser } from "@/lib/api/settingsStream";
+import { streamProjectList, ProjectListStreamEvent } from "@/lib/api/projectListStream";
+import { streamCreateProject, CreateProjectStreamEvent } from "@/lib/api/createProjectStream";
 import { toast } from "@/components/snakbar";
+
+// Maps a project-list-detail or create-project lambda step event to the
+// single line the dashboard's live-activity MiniTerminal should show — every
+// step, parent or nested sub-step alike, becomes a line (nothing filtered
+// out), same convention as project/page.tsx's eventToLine.
+function eventToActivityLine(event: ProjectListStreamEvent | CreateProjectStreamEvent) {
+  if (event.type !== "step") return null;
+  const status: "active" | "done" | "error" =
+    event.status === "completed" ? "done" : event.status === "failed" ? "error" : "active";
+  return { text: event.error ? `${event.label}: ${event.error}` : event.label, status };
+}
+
+function isValidWebsiteUrl(value: string) {
+  try {
+    const u = new URL(value);
+    return (u.protocol === "http:" || u.protocol === "https:") && u.hostname.includes(".") && u.hostname.length >= 4;
+  } catch {
+    return false;
+  }
+}
 
 // Fixed top-center pill navbar for every screen inside the authenticated app
 // (dashboard and anything added under the same layout going forward) — same
@@ -32,6 +55,13 @@ const ProjectIcon = () => (
     </svg>
 );
 
+const PlusIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+);
+
 const appLinks = [{ href: "/dashboard", label: "Dashboard", icon: DashboardIcon }];
 
 const AppNavbar = () => {
@@ -40,15 +70,17 @@ const AppNavbar = () => {
     const user = useAppSelector((state) => state.auth.user);
     const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
     const project = useAppSelector((state) => state.auth.project);
+    const projects = useAppSelector((state) => state.auth.projects);
     const [isSigningOut, setIsSigningOut] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isProjectOpen, setIsProjectOpen] = useState(false);
-    // Dummy for now — Xlya only supports one project per account, so this
-    // dropdown always has a single, already-selected option. Built with the
-    // same custom trigger+panel pattern as the signup page's Gender field
-    // (native <select> can't be themed on this dark UI) so it's ready to
-    // list real projects the moment multi-project support exists.
+    // Real custom dropdown (trigger button + option panel) — native <select>
+    // can't be themed on this dark UI. Options come from `projects`
+    // (Redux), populated below by the project-list-detail lambda's "list"
+    // action.
     const [isProjectSelectOpen, setIsProjectSelectOpen] = useState(false);
+    const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+    const [switchingProjectId, setSwitchingProjectId] = useState<string | null>(null);
     const [profile, setProfile] = useState<SettingsUser | null>(null);
     const profileRef = useRef<HTMLDivElement>(null);
     const projectRef = useRef<HTMLDivElement>(null);
@@ -59,6 +91,14 @@ const AppNavbar = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
     const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+    // Create-new-project modal — only asks for a website URL; the
+    // create-project lambda derives the project name from the domain itself
+    // (e.g. https://www.notion.com -> "notion"), so there's no separate name
+    // field to fill in.
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [newProjectWebsite, setNewProjectWebsite] = useState("");
+    const [createUrlError, setCreateUrlError] = useState("");
 
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
@@ -95,6 +135,134 @@ const AppNavbar = () => {
             cancelled = true;
         };
     }, [accessToken]);
+
+    // Fetches the full record for one project_id via the project-list-detail
+    // lambda's "get" action, streaming its steps into the dashboard's shared
+    // live-activity terminal (state.auth.projectActivity) as they arrive, and
+    // dispatching the fresh ProjectRecord into state.auth.project on success
+    // — every other lambda call in the app (project content, market
+    // analysis) reads project_id from that same Redux field, so this is the
+    // one place a project switch needs to update. `silent` suppresses the
+    // success toast for the automatic mount-time load (only an explicit
+    // click through the dropdown should announce itself).
+    const switchToProject = async (projectId: string, options?: { silent?: boolean }) => {
+        if (!accessToken) return false;
+        setSwitchingProjectId(projectId);
+        const outcome: { ok: boolean; project: ProjectRecord | null; errorMsg: string } = {
+            ok: false,
+            project: null,
+            errorMsg: "",
+        };
+        try {
+            await streamProjectList(accessToken, { action: "get", project_id: projectId }, (event) => {
+                const line = eventToActivityLine(event);
+                if (line) dispatch(setProjectActivity(line));
+                if (event.type !== "result") return;
+                outcome.ok = event.statusCode === 200;
+                outcome.project = event.project || null;
+                outcome.errorMsg = event.details?.join(" ") || event.error || "";
+            });
+        } catch (err) {
+            console.error("Failed to load project details:", err);
+            outcome.errorMsg = err instanceof Error ? err.message : "";
+        }
+        setSwitchingProjectId(null);
+        if (outcome.ok && outcome.project) {
+            dispatch(setProject(outcome.project));
+            if (!options?.silent) toast.success(`Switched to "${outcome.project.project_name}".`);
+            return true;
+        }
+        toast.error(outcome.errorMsg || "Couldn't load that project.");
+        return false;
+    };
+
+    // Runs once per authenticated navbar mount: loads every project the
+    // account owns (for the Select Project dropdown), then makes sure
+    // state.auth.project reflects the real current row from
+    // xlya-dev-projects-table — not just whatever the signup/login lambda
+    // happened to return, which can go stale over a long session.
+    useEffect(() => {
+        if (!accessToken) return;
+        let cancelled = false;
+        (async () => {
+            setIsLoadingProjects(true);
+            let list: ProjectSummary[] = [];
+            try {
+                await streamProjectList(accessToken, { action: "list" }, (event) => {
+                    if (cancelled) return;
+                    if (event.type === "result" && event.statusCode === 200 && event.projects) {
+                        list = event.projects;
+                    }
+                });
+            } catch (err) {
+                console.error("Failed to load projects:", err);
+            }
+            if (cancelled) return;
+            dispatch(setProjects(list));
+            setIsLoadingProjects(false);
+
+            if (list.length === 0) return;
+            const currentId = project?.project_id;
+            const activeId = (currentId && list.some((p) => p.project_id === currentId))
+                ? currentId
+                : (list.find((p) => p.isDefault) || list[0]).project_id;
+            await switchToProject(activeId, { silent: true });
+        })();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accessToken]);
+
+    const handleSelectProject = (p: ProjectSummary) => {
+        setIsProjectSelectOpen(false);
+        if (p.project_id === project?.project_id || switchingProjectId) return;
+        switchToProject(p.project_id);
+    };
+
+    // Fires the create-project lambda (website crawl + NVIDIA ICP/competitors
+    // + lighthouse scoring + knowledge-base sync, commonly 60-150s+) in the
+    // background. The modal is already closed by the time this runs — every
+    // streamed step (parent or nested sub-step) feeds the same
+    // state.auth.projectActivity the dashboard's Live Activity terminal
+    // reads, and a single toast fires only once the whole thing resolves.
+    const handleCreateProject = async (websiteUrl: string) => {
+        if (!accessToken) return;
+        let ok = false;
+        let newProject: ProjectRecord | null = null;
+        let errorMsg = "";
+        try {
+            await streamCreateProject(accessToken, websiteUrl, (event) => {
+                const line = eventToActivityLine(event);
+                if (line) dispatch(setProjectActivity(line));
+                if (event.type !== "result") return;
+                ok = event.statusCode === 200;
+                newProject = event.project || null;
+                errorMsg = event.details?.join(" ") || event.error || "";
+            });
+        } catch (err) {
+            console.error("Failed to create project:", err);
+            errorMsg = err instanceof Error ? err.message : "";
+        }
+
+        if (ok && newProject) {
+            dispatch(setProject(newProject));
+            toast.success(`"${(newProject as ProjectRecord).project_name}" created and set as your active project.`);
+            // Refresh the full project list so the switcher reflects the new
+            // project and the old default's isDefault:false flip.
+            try {
+                let list: ProjectSummary[] = [];
+                await streamProjectList(accessToken, { action: "list" }, (event) => {
+                    if (event.type === "result" && event.statusCode === 200 && event.projects) list = event.projects;
+                });
+                dispatch(setProjects(list));
+            } catch (err) {
+                console.error("Failed to refresh project list after create:", err);
+            }
+        } else {
+            toast.error(errorMsg || "Couldn't create that project.");
+        }
+    };
 
     // Revokes the session server-side (GlobalSignOut via the logout lambda)
     // and clears local session state either way — a failed/expired-token
@@ -255,13 +423,20 @@ const AppNavbar = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsProjectSelectOpen((o) => !o)}
-                                                        className={`w-full flex items-center justify-between gap-2 pl-3 pr-2.5 py-2 text-xs font-medium bg-[#2a2a2a]/50 backdrop-blur-sm border rounded-lg text-left transition-all ${
+                                                        disabled={isLoadingProjects && projects.length === 0}
+                                                        className={`w-full flex items-center justify-between gap-2 pl-3 pr-2.5 py-2 text-xs font-medium bg-[#2a2a2a]/50 backdrop-blur-sm border rounded-lg text-left transition-all disabled:opacity-50 ${
                                                             isProjectSelectOpen
                                                                 ? "border-[var(--gold-primary)] ring-1 ring-[var(--gold-primary)]"
                                                                 : "border-gray-700/50"
                                                         }`}
                                                     >
-                                                        <span className="text-white truncate">{project.project_name}</span>
+                                                        <span className="text-white truncate">
+                                                            {isLoadingProjects && projects.length === 0
+                                                                ? "Loading projects…"
+                                                                : switchingProjectId
+                                                                ? "Switching…"
+                                                                : project.project_name}
+                                                        </span>
                                                         <svg
                                                             className={`w-3.5 h-3.5 text-gray-500 flex-none transition-transform duration-200 ${
                                                                 isProjectSelectOpen ? "rotate-180" : ""
@@ -277,17 +452,40 @@ const AppNavbar = () => {
                                                     {isProjectSelectOpen && (
                                                         <>
                                                             <div className="fixed inset-0 z-40" onClick={() => setIsProjectSelectOpen(false)} />
-                                                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[#1e1e1e] border border-gray-700/50 rounded-lg shadow-xl shadow-black/40 overflow-hidden">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setIsProjectSelectOpen(false)}
-                                                                    className="w-full flex items-center justify-between gap-2 text-left px-3.5 py-2.5 text-xs bg-[var(--gold-primary)]/10 text-[var(--gold-primary)] transition-colors"
-                                                                >
-                                                                    <span className="truncate">{project.project_name}</span>
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-none">
-                                                                        <polyline points="20 6 9 17 4 12" />
-                                                                    </svg>
-                                                                </button>
+                                                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[#1e1e1e] border border-gray-700/50 rounded-lg shadow-xl shadow-black/40 overflow-hidden max-h-[220px] overflow-y-auto">
+                                                                {projects.length === 0 ? (
+                                                                    <div className="px-3.5 py-2.5 text-xs text-gray-500">No projects yet.</div>
+                                                                ) : (
+                                                                    projects.map((p) => {
+                                                                        const isActive = p.project_id === project.project_id;
+                                                                        const isSwitching = switchingProjectId === p.project_id;
+                                                                        return (
+                                                                            <button
+                                                                                key={p.project_id}
+                                                                                type="button"
+                                                                                onClick={() => handleSelectProject(p)}
+                                                                                disabled={!!switchingProjectId}
+                                                                                className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2.5 text-xs transition-colors disabled:cursor-not-allowed ${
+                                                                                    isActive
+                                                                                        ? "bg-[var(--gold-primary)]/10 text-[var(--gold-primary)]"
+                                                                                        : "text-[#c9c2ae] hover:bg-white/5"
+                                                                                }`}
+                                                                            >
+                                                                                <span className="truncate">
+                                                                                    {p.project_name}
+                                                                                    {p.isDefault && <span className="text-gray-600"> · Default</span>}
+                                                                                </span>
+                                                                                {isSwitching ? (
+                                                                                    <span className="w-3 h-3 flex-none rounded-full border-2 border-gray-600 border-t-transparent animate-spin" />
+                                                                                ) : isActive ? (
+                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-none">
+                                                                                        <polyline points="20 6 9 17 4 12" />
+                                                                                    </svg>
+                                                                                ) : null}
+                                                                            </button>
+                                                                        );
+                                                                    })
+                                                                )}
                                                             </div>
                                                         </>
                                                     )}
@@ -301,6 +499,18 @@ const AppNavbar = () => {
                                                 >
                                                     View Project Details
                                                 </Link>
+                                            </div>
+                                            <div className="border-t border-[#FEFEFE]/20 py-1.5">
+                                                <button
+                                                    onClick={() => {
+                                                        setIsProjectOpen(false);
+                                                        setIsCreateModalOpen(true);
+                                                    }}
+                                                    className="w-full flex items-center gap-1.5 text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
+                                                >
+                                                    <PlusIcon />
+                                                    Create New Project
+                                                </button>
                                             </div>
                                             <div className="border-t border-[#FEFEFE]/20 py-1.5">
                                                 <button
@@ -411,56 +621,146 @@ const AppNavbar = () => {
                 </div>
             </div>
 
-            {isDeleteModalOpen && project && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={() => !isDeletingProject && setIsDeleteModalOpen(false)}
-                    />
-                    <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-red-900/40 rounded-2xl p-6">
-                        <h3 className="text-base font-semibold text-white mb-2">
-                            Delete {project.project_name}?
-                        </h3>
-                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                            Xlya doesn&apos;t support multiple projects yet, so deleting your only project
-                            permanently deletes your entire account and all its data. This cannot be undone.
-                            Type your email ({email && <span className="text-gray-400">{email}</span>}) to
-                            confirm.
-                        </p>
-                        <input
-                            type="email"
-                            value={deleteConfirmEmail}
-                            onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                            placeholder={email || "your@email.com"}
-                            className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-red-500 transition-colors"
+            {isCreateModalOpen &&
+                typeof document !== "undefined" &&
+                createPortal(
+                    // Rendered via a portal straight into <body> — this modal was
+                    // getting trapped inside <motion.nav>'s own transformed
+                    // bounding box (framer-motion's animate prop leaves a
+                    // transform on the nav even at rest), which turns `fixed`
+                    // into effectively `absolute` relative to that ancestor
+                    // instead of the viewport, so the popup rendered off-center
+                    // with no real full-screen blur. A portal escapes that
+                    // stacking/containing-block context entirely.
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            onClick={() => {
+                                setIsCreateModalOpen(false);
+                                setNewProjectWebsite("");
+                                setCreateUrlError("");
+                            }}
                         />
-                        <div className="flex items-center justify-end gap-3 mt-5">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsDeleteModalOpen(false);
-                                    setDeleteConfirmEmail("");
-                                }}
-                                disabled={isDeletingProject}
-                                className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeleteProject}
-                                disabled={
-                                    isDeletingProject ||
-                                    deleteConfirmEmail.trim().toLowerCase() !== (email || "").toLowerCase()
-                                }
-                                className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-40 disabled:hover:bg-red-600"
-                            >
-                                {isDeletingProject ? "Deleting…" : "Delete permanently"}
-                            </button>
+                        <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-[#FEFEFE]/20 rounded-2xl p-6">
+                            <h3 className="text-base font-semibold text-white mb-2">Create new project</h3>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                Paste your website URL — Xlya names the project from your domain and
+                                automatically generates its ICP, competitors, and performance insights.
+                            </p>
+                            <div>
+                                <label className="block text-[10.5px] font-semibold tracking-[0.06em] uppercase text-gray-600 mb-1.5">
+                                    Website URL
+                                </label>
+                                <input
+                                    autoFocus
+                                    value={newProjectWebsite}
+                                    onChange={(e) => {
+                                        setNewProjectWebsite(e.target.value);
+                                        if (createUrlError) setCreateUrlError("");
+                                    }}
+                                    placeholder="https://www.notion.com"
+                                    className={`w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border rounded-lg text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
+                                        createUrlError ? "border-red-500" : "border-[#2a2a2a] focus:border-[var(--gold-primary)]"
+                                    }`}
+                                />
+                                {createUrlError && <p className="text-[11px] text-red-400 mt-1.5">{createUrlError}</p>}
+                            </div>
+                            <div className="flex items-center justify-end gap-3 mt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsCreateModalOpen(false);
+                                        setNewProjectWebsite("");
+                                        setCreateUrlError("");
+                                    }}
+                                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const trimmed = newProjectWebsite.trim();
+                                        if (!isValidWebsiteUrl(trimmed)) {
+                                            setCreateUrlError("Enter a valid website URL, e.g. https://www.notion.com");
+                                            return;
+                                        }
+                                        // Closes immediately — progress streams into the
+                                        // dashboard's Live Activity terminal instead, and a
+                                        // single toast fires once the whole thing resolves.
+                                        setIsCreateModalOpen(false);
+                                        setNewProjectWebsite("");
+                                        setCreateUrlError("");
+                                        handleCreateProject(trimmed);
+                                    }}
+                                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-[var(--gold-primary)] text-black hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    Create project
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </div>,
+                    document.body
+                )}
+
+            {isDeleteModalOpen &&
+                project &&
+                typeof document !== "undefined" &&
+                createPortal(
+                    // Same portal fix as the create-project modal above — escapes
+                    // <motion.nav>'s transformed bounding box so `fixed` centers
+                    // on the real viewport and the backdrop blur covers the
+                    // whole screen.
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            onClick={() => !isDeletingProject && setIsDeleteModalOpen(false)}
+                        />
+                        <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-red-900/40 rounded-2xl p-6">
+                            <h3 className="text-base font-semibold text-white mb-2">
+                                Delete {project.project_name}?
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                                Xlya doesn&apos;t support multiple projects yet, so deleting your only project
+                                permanently deletes your entire account and all its data. This cannot be undone.
+                                Type your email ({email && <span className="text-gray-400">{email}</span>}) to
+                                confirm.
+                            </p>
+                            <input
+                                type="email"
+                                value={deleteConfirmEmail}
+                                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                                placeholder={email || "your@email.com"}
+                                className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-red-500 transition-colors"
+                            />
+                            <div className="flex items-center justify-end gap-3 mt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsDeleteModalOpen(false);
+                                        setDeleteConfirmEmail("");
+                                    }}
+                                    disabled={isDeletingProject}
+                                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteProject}
+                                    disabled={
+                                        isDeletingProject ||
+                                        deleteConfirmEmail.trim().toLowerCase() !== (email || "").toLowerCase()
+                                    }
+                                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-40 disabled:hover:bg-red-600"
+                                >
+                                    {isDeletingProject ? "Deleting…" : "Delete permanently"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
         </motion.nav>
     );
 };
