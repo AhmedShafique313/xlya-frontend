@@ -12,6 +12,7 @@ import { streamLogout } from "@/lib/api/logoutStream";
 import { streamSettings, SettingsUser } from "@/lib/api/settingsStream";
 import { streamProjectList, ProjectListStreamEvent } from "@/lib/api/projectListStream";
 import { streamCreateProject, CreateProjectStreamEvent } from "@/lib/api/createProjectStream";
+import McpConnectorSidebar from "@/components/common/McpConnectorSidebar";
 import { toast } from "@/components/snakbar";
 
 // Maps a project-list-detail or create-project lambda step event to the
@@ -62,6 +63,13 @@ const PlusIcon = () => (
     </svg>
 );
 
+const ConnectorIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9 3v4M15 3v4M9 21v-4M15 21v-4" />
+        <path d="M6 7h12a1 1 0 011 1v3a5 5 0 01-5 5h-4a5 5 0 01-5-5V8a1 1 0 011-1z" />
+    </svg>
+);
+
 const appLinks = [{ href: "/dashboard", label: "Dashboard", icon: DashboardIcon }];
 
 const AppNavbar = () => {
@@ -99,6 +107,9 @@ const AppNavbar = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newProjectWebsite, setNewProjectWebsite] = useState("");
     const [createUrlError, setCreateUrlError] = useState("");
+
+    // MCP connectors drawer (Vibe Prospecting) — see McpConnectorSidebar.
+    const [isMcpSidebarOpen, setIsMcpSidebarOpen] = useState(false);
 
     useEffect(() => {
         function onClickOutside(e: MouseEvent) {
@@ -530,6 +541,20 @@ const AppNavbar = () => {
                         )}
 
                         <button
+                            onClick={() => setIsMcpSidebarOpen(true)}
+                            aria-label="Integrations"
+                            aria-expanded={isMcpSidebarOpen}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 ${
+                                isMcpSidebarOpen
+                                    ? "text-[var(--gold-primary)] bg-[rgba(204,172,93,0.12)]"
+                                    : "text-[#918C94] hover:text-[var(--gold-primary)]"
+                            }`}
+                        >
+                            <ConnectorIcon />
+                            Integrations
+                        </button>
+
+                        <button
                             aria-label="Notifications"
                             className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200 text-xs font-medium"
                         >
@@ -761,6 +786,13 @@ const AppNavbar = () => {
                     </div>,
                     document.body
                 )}
+
+            <McpConnectorSidebar
+                isOpen={isMcpSidebarOpen}
+                onClose={() => setIsMcpSidebarOpen(false)}
+                projectId={project?.project_id ?? null}
+                accessToken={accessToken}
+            />
         </motion.nav>
     );
 };
