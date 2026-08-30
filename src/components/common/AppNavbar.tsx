@@ -70,7 +70,19 @@ const ConnectorIcon = () => (
     </svg>
 );
 
-const appLinks = [{ href: "/dashboard", label: "Dashboard", icon: DashboardIcon }];
+const AgentsIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
+        <path d="M8 16h.01M16 16h.01" />
+    </svg>
+);
+
+const appLinks = [
+    { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
+    { href: "/dashboard/agents", label: "Agents", icon: AgentsIcon },
+];
 
 const AppNavbar = () => {
     const pathname = usePathname();
@@ -634,14 +646,6 @@ const AppNavbar = () => {
                             )}
                         </AnimatePresence>
                         </div>
-                    </div>
-
-                    <div className="hidden sm:flex items-center gap-2 border border-[#2a2a2a] rounded-lg px-3.5 py-1.5 w-[220px] lg:w-[300px] text-[#6b6b6b] ml-auto">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-none">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        <span className="text-[11px] text-[#5c5c5c]">Search</span>
                     </div>
                 </div>
             </div>

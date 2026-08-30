@@ -29,7 +29,7 @@ export default function MiniTerminal({ line, idleLabel = "Ready" }: MiniTerminal
     : "text-[#f4f0e8]";
 
   return (
-    <div className="flex items-center gap-2.5 border border-[#1c1c1c] bg-[#0a0a0a] rounded-lg px-3 py-2 font-mono text-[11px] overflow-hidden">
+    <div className="w-full flex items-center gap-2.5 border border-[#1c1c1c] bg-[#0a0a0a] rounded-lg px-3 py-2 font-mono text-[11px] overflow-hidden">
       <div className="flex items-center gap-1 flex-none">
         {DOT_COLORS.map((dotColor) => (
           <span key={dotColor} className="w-2 h-2 rounded-full" style={{ background: dotColor }} />
