@@ -1,30 +1,29 @@
-import Hero from "@/components/landingPage/Hero";
-import WhyTexalya from "@/components/landingPage/WhyTexalya";
-import Pricing from "@/components/landingPage/Pricing";
-import Contact from "@/components/landingPage/Contact";
-import Footer from "@/components/landingPage/Footer";
+"use client";
+
+import "@/components/landingPage/landing.css";
+import { LandingThemeProvider } from "@/components/landingPage/landingTheme";
 import Navbar from "@/components/landingPage/Navbar";
+import Hero from "@/components/landingPage/Hero";
+import StrategySection from "@/components/landingPage/StrategySection";
+import GrowthSection from "@/components/landingPage/GrowthSection";
+import MarketingSection from "@/components/landingPage/MarketingSection";
+import OperationsSection from "@/components/landingPage/OperationsSection";
+import Testimonials from "@/components/landingPage/Testimonials";
+import FinalCTA from "@/components/landingPage/FinalCTA";
+import Footer from "@/components/landingPage/Footer";
 
 export default function Home() {
   return (
-    <main className="min-h-screen pt-[80px]">
-
-      <Navbar/>
-
-      {/* Hero Section - Fits in one screen */}
+    <LandingThemeProvider>
+      <Navbar />
       <Hero />
-
-      {/* Why Texalya Section */}
-      <WhyTexalya />
-
-      {/* Pricing Section */}
-      <Pricing />
-
-      {/* Contact Section */}
-      <Contact />
-
-      {/* Footer */}
+      <StrategySection />
+      <GrowthSection />
+      <MarketingSection />
+      <OperationsSection />
+      <Testimonials />
+      <FinalCTA />
       <Footer />
-    </main>
+    </LandingThemeProvider>
   );
 }

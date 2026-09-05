@@ -1,9 +1,12 @@
 import { HTMLAttributes } from "react";
 
 export type LogoSize = "sm" | "md" | "lg";
+export type LogoVariant = "dark" | "light";
 
 interface LogoProps extends HTMLAttributes<HTMLHeadingElement> {
     size?: LogoSize;
+    /** "dark" (default) = LYA in white, for dark backgrounds. "light" = LYA in black, for light backgrounds. */
+    variant?: LogoVariant;
 }
 
 const sizeStyles: Record<LogoSize, string> = {
@@ -12,7 +15,7 @@ const sizeStyles: Record<LogoSize, string> = {
     lg: "text-[76px]",
 };
 
-const Logo = ({ size = "lg", className = "", ...props }: LogoProps) => {
+const Logo = ({ size = "lg", variant = "dark", className = "", ...props }: LogoProps) => {
     return (
         <h1
             className={["fjalla-one-regular leading-none", sizeStyles[size], className]
@@ -21,7 +24,7 @@ const Logo = ({ size = "lg", className = "", ...props }: LogoProps) => {
             {...props}
         >
             <span className="text-[var(--gold-primary)]">X</span>
-            <span className="text-white">LYA</span>
+            <span className={variant === "light" ? "text-black" : "text-white"}>LYA</span>
         </h1>
     );
 };
