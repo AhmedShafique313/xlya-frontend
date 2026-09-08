@@ -10,6 +10,8 @@ import {
   CHALLENGE_OPTIONS,
   TEAM_SIZE_OPTIONS,
 } from "@/constants/onboarding";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
+import type { LandingThemeTokens } from "@/components/landingPage/landingTheme";
 
 // Downscales/compresses an image client-side before it's base64-encoded and
 // sent to the settings lambda, which stores it as a Binary attribute
@@ -50,11 +52,13 @@ function Dropdown({
   onChange,
   options,
   placeholder,
+  t,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder: string;
+  t: LandingThemeTokens;
 }) {
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((o) => o.value === value)?.label;
@@ -64,14 +68,17 @@ function Dropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] backdrop-blur-sm border rounded-lg text-left focus:outline-none transition-all ${
-          open ? "border-[var(--gold-primary)] ring-1 ring-[var(--gold-primary)]" : "border-[#2a2a2a]"
-        } ${selectedLabel ? "text-white" : "text-gray-500"}`}
+        className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg text-left focus:outline-none transition-all"
+        style={{
+          background: t.surface,
+          border: `1px solid ${open ? t.gold : t.border}`,
+          color: selectedLabel ? t.fg : t.fgFaint,
+        }}
       >
         {selectedLabel || placeholder}
       </button>
       <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5" style={{ color: t.fgFaint }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
@@ -79,7 +86,10 @@ function Dropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-1.5 z-50 w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg shadow-xl shadow-black/40 overflow-hidden">
+          <div
+            className="absolute top-full left-0 right-0 mt-1.5 z-50 w-full rounded-lg overflow-hidden"
+            style={{ background: t.card, border: `1px solid ${t.border}`, boxShadow: "0 12px 32px rgba(0,0,0,0.35)" }}
+          >
             {options.map((opt) => (
               <button
                 key={opt.value}
@@ -88,11 +98,11 @@ function Dropdown({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3.5 py-2.5 text-[0.8rem] transition-colors ${
-                  value === opt.value
-                    ? "bg-[var(--gold-primary)]/10 text-[var(--gold-primary)]"
-                    : "text-gray-300 hover:bg-white/5"
-                }`}
+                className="w-full text-left px-3.5 py-2.5 text-[0.8rem] transition-colors"
+                style={{
+                  background: value === opt.value ? t.goldDim : "transparent",
+                  color: value === opt.value ? t.gold : t.fgMid,
+                }}
               >
                 {opt.label}
               </button>
@@ -105,6 +115,7 @@ function Dropdown({
 }
 
 export default function SettingsPage() {
+  const { t } = useLandingTheme();
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((state) => state.auth.user);
   const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
@@ -329,28 +340,36 @@ export default function SettingsPage() {
   const displayName = [firstName, lastName].filter(Boolean).join(" ") || email || "Account";
   const initials = (firstName?.[0] || email?.[0] || "?").toUpperCase();
 
+  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
+  const inputStyle: React.CSSProperties = { background: t.surface, border: `1px solid ${t.border}`, color: t.fg };
+  const readonlyStyle: React.CSSProperties = { background: t.surface, border: `1px solid ${t.border}`, color: t.fgMid };
+  const socialButtonStyle: React.CSSProperties = { background: t.surface, border: `1px solid ${t.border}`, color: t.fg };
+
   return (
-    <div className="min-h-screen flex justify-center p-6 md:p-10 pt-24 text-[#f4f0e8]">
+    <div className="min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]" style={{ color: t.fg }}>
       <div className="w-full max-w-[720px] min-w-0">
-        <h1 className="text-2xl font-bold text-white mb-1">Profile & Settings</h1>
-        <p className="text-sm text-gray-500 mb-8">Manage your account details and preferences.</p>
+        <h1 className="text-2xl font-bold mb-1" style={{ color: t.fg }}>Profile & Settings</h1>
+        <p className="text-sm mb-8" style={{ color: t.fgMid }}>Manage your account details and preferences.</p>
 
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[var(--gold-primary)] animate-spin" />
+            <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `2px solid ${t.border}`, borderTopColor: t.gold }} />
           </div>
         ) : (
           <div className="space-y-6">
             {/* Avatar */}
-            <section className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-white mb-4">Profile photo</h2>
+            <section className="rounded-2xl p-6" style={cardStyle}>
+              <h2 className="text-sm font-semibold mb-4" style={{ color: t.fg }}>Profile photo</h2>
               <div className="flex items-center gap-5">
-                <div className="relative w-20 h-20 rounded-full overflow-hidden border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                <div
+                  className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                  style={{ border: `1px solid ${t.border}`, background: t.surface }}
+                >
                   {profile?.profileImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.profileImage} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-semibold text-[var(--gold-primary)]">{initials}</span>
+                    <span className="text-2xl font-semibold" style={{ color: t.gold }}>{initials}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -365,7 +384,8 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingImage}
-                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2a2a2a]/50 border border-gray-700/50 text-white hover:bg-[#2a2a2a] transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 hover:brightness-125"
+                    style={socialButtonStyle}
                   >
                     {uploadingImage ? "Uploading…" : profile?.profileImage ? "Change photo" : "Upload photo"}
                   </button>
@@ -374,7 +394,8 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleDeleteImage}
                       disabled={deletingImage}
-                      className="px-4 py-2 text-xs font-semibold rounded-lg text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                      style={{ color: t.fgMid }}
                     >
                       {deletingImage ? "Removing…" : "Remove"}
                     </button>
@@ -384,111 +405,101 @@ export default function SettingsPage() {
             </section>
 
             {/* Read-only identity */}
-            <section className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-white mb-4">Account details</h2>
+            <section className="rounded-2xl p-6" style={cardStyle}>
+              <h2 className="text-sm font-semibold mb-4" style={{ color: t.fg }}>Account details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">First name</label>
-                  <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>First name</label>
+                  <div className="px-3.5 py-2.5 text-[0.8rem] rounded-lg" style={readonlyStyle}>
                     {firstName || "Not set"}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Last name</label>
-                  <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Last name</label>
+                  <div className="px-3.5 py-2.5 text-[0.8rem] rounded-lg" style={readonlyStyle}>
                     {lastName || "Not set"}
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Email</label>
-                  <div className="px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-gray-400">
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Email</label>
+                  <div className="px-3.5 py-2.5 text-[0.8rem] rounded-lg" style={readonlyStyle}>
                     {email || "Not set"}
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Contact number</label>
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Contact number</label>
                   <input
                     type="tel"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="+1 555 000 0000"
-                    className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-[var(--gold-primary)] transition-colors"
+                    className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                    style={inputStyle}
                   />
                 </div>
               </div>
             </section>
 
             {/* Business settings */}
-            <section className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-white mb-4">Business settings</h2>
+            <section className="rounded-2xl p-6" style={cardStyle}>
+              <h2 className="text-sm font-semibold mb-4" style={{ color: t.fg }}>Business settings</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Business type</label>
-                  <Dropdown
-                    value={businessType}
-                    onChange={setBusinessType}
-                    options={BUSINESS_TYPE_OPTIONS}
-                    placeholder="Select business type"
-                  />
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Business type</label>
+                  <Dropdown value={businessType} onChange={setBusinessType} options={BUSINESS_TYPE_OPTIONS} placeholder="Select business type" t={t} />
                 </div>
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Biggest challenge</label>
-                  <Dropdown
-                    value={challenge}
-                    onChange={setChallenge}
-                    options={CHALLENGE_OPTIONS}
-                    placeholder="Select challenge"
-                  />
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Biggest challenge</label>
+                  <Dropdown value={challenge} onChange={setChallenge} options={CHALLENGE_OPTIONS} placeholder="Select challenge" t={t} />
                 </div>
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Team size</label>
-                  <Dropdown
-                    value={teamSize}
-                    onChange={setTeamSize}
-                    options={TEAM_SIZE_OPTIONS}
-                    placeholder="Select team size"
-                  />
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Team size</label>
+                  <Dropdown value={teamSize} onChange={setTeamSize} options={TEAM_SIZE_OPTIONS} placeholder="Select team size" t={t} />
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleSaveProfile}
                 disabled={savingProfile}
-                className="mt-5 px-6 py-2.5 rounded-xl font-semibold text-sm animate-button-gradient text-black hover:shadow-lg hover:shadow-[var(--gold-primary)]/20 hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:hover:scale-100"
+                className="mt-5 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 disabled:opacity-50"
+                style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
               >
                 {savingProfile ? "Saving…" : "Save changes"}
               </button>
             </section>
 
             {/* Password */}
-            <section className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-white mb-4">Password</h2>
+            <section className="rounded-2xl p-6" style={cardStyle}>
+              <h2 className="text-sm font-semibold mb-4" style={{ color: t.fg }}>Password</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Current password</label>
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Current password</label>
                   <input
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white focus:outline-none focus:border-[var(--gold-primary)] transition-colors"
+                    className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">New password</label>
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>New password</label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white focus:outline-none focus:border-[var(--gold-primary)] transition-colors"
+                    className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label className="block text-[0.72rem] font-medium text-gray-500 mb-1.5">Confirm new password</label>
+                  <label className="block text-[0.72rem] font-medium mb-1.5" style={{ color: t.fgFaint }}>Confirm new password</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white focus:outline-none focus:border-[var(--gold-primary)] transition-colors"
+                    className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                    style={inputStyle}
                   />
                 </div>
               </div>
@@ -496,36 +507,39 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleChangePassword}
                 disabled={savingPassword}
-                className="mt-5 px-6 py-2.5 rounded-xl font-semibold text-sm bg-[#2a2a2a]/50 border border-gray-700/50 text-white hover:bg-[#2a2a2a] transition-colors disabled:opacity-50"
+                className="mt-5 px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 hover:brightness-125"
+                style={socialButtonStyle}
               >
                 {savingPassword ? "Updating…" : "Update password"}
               </button>
             </section>
 
             {/* Upgrade */}
-            <section className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 flex items-center justify-between gap-4">
+            <section className="rounded-2xl p-6 flex items-center justify-between gap-4" style={cardStyle}>
               <div>
-                <h2 className="text-sm font-semibold text-white">Upgrade your account</h2>
-                <p className="text-xs text-gray-500 mt-1">Unlock higher limits and more features.</p>
+                <h2 className="text-sm font-semibold" style={{ color: t.fg }}>Upgrade your account</h2>
+                <p className="text-xs mt-1" style={{ color: t.fgMid }}>Unlock higher limits and more features.</p>
               </div>
               <button
                 type="button"
-                className="px-5 py-2.5 rounded-lg font-semibold text-xs text-[var(--gold-primary)] border border-[var(--gold-primary)]/40 hover:bg-[var(--gold-primary)]/10 transition-colors flex-shrink-0"
+                className="px-5 py-2.5 rounded-lg font-semibold text-xs transition-colors flex-shrink-0"
+                style={{ color: t.gold, border: `1px solid ${t.gold}66` }}
               >
                 Upgrade Account
               </button>
             </section>
 
             {/* Danger zone */}
-            <section className="border border-red-900/40 bg-red-950/10 rounded-2xl p-6">
-              <h2 className="text-sm font-semibold text-red-400">Delete account</h2>
-              <p className="text-xs text-gray-500 mt-1 mb-4">
+            <section className="rounded-2xl p-6" style={{ border: "1px solid rgba(239,68,68,0.35)", background: t.isDark ? "rgba(69,10,10,0.15)" : "rgba(254,226,226,0.4)" }}>
+              <h2 className="text-sm font-semibold" style={{ color: "#f87171" }}>Delete account</h2>
+              <p className="text-xs mt-1 mb-4" style={{ color: t.fgMid }}>
                 This permanently removes your account and all associated data. This cannot be undone.
               </p>
               <button
                 type="button"
                 onClick={() => setDeleteModalOpen(true)}
-                className="px-5 py-2.5 rounded-lg font-semibold text-xs text-red-400 border border-red-900/50 hover:bg-red-950/30 transition-colors"
+                className="px-5 py-2.5 rounded-lg font-semibold text-xs transition-colors"
+                style={{ color: "#f87171", border: "1px solid rgba(239,68,68,0.4)" }}
               >
                 Delete Account
               </button>
@@ -538,21 +552,23 @@ export default function SettingsPage() {
       {deleteModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 backdrop-blur-sm"
+            style={{ background: "rgba(0,0,0,0.6)" }}
             onClick={() => !deletingAccount && setDeleteModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-red-900/40 rounded-2xl p-6">
-            <h3 className="text-base font-semibold text-white mb-2">Delete {displayName}&apos;s account?</h3>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+          <div className="relative w-full max-w-sm rounded-2xl p-6" style={{ background: t.card, border: "1px solid rgba(239,68,68,0.35)" }}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: t.fg }}>Delete {displayName}&apos;s account?</h3>
+            <p className="text-xs mb-4 leading-relaxed" style={{ color: t.fgMid }}>
               This permanently deletes your account and all data from Xlya. It cannot be undone. Type your email (
-              <span className="text-gray-400">{email}</span>) to confirm.
+              <span style={{ color: t.fgMid }}>{email}</span>) to confirm.
             </p>
             <input
               type="email"
               value={deleteConfirmEmail}
               onChange={(e) => setDeleteConfirmEmail(e.target.value)}
               placeholder={email || "your@email.com"}
-              className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-red-500 transition-colors"
+              className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+              style={inputStyle}
             />
             <div className="flex items-center justify-end gap-3 mt-5">
               <button
@@ -562,7 +578,8 @@ export default function SettingsPage() {
                   setDeleteConfirmEmail("");
                 }}
                 disabled={deletingAccount}
-                className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+                style={{ color: t.fgMid }}
               >
                 Cancel
               </button>
@@ -570,7 +587,8 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={deletingAccount || deleteConfirmEmail.trim().toLowerCase() !== (email || "").toLowerCase()}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-40 disabled:hover:bg-red-600"
+                className="px-4 py-2 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40"
+                style={{ background: "#dc2626", color: "#ffffff" }}
               >
                 {deletingAccount ? "Deleting…" : "Delete permanently"}
               </button>

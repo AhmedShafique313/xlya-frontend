@@ -12,6 +12,7 @@ import QuestionStep from "@/components/onboarding/QuestionStep";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { useGetCurrentSessionQuery, setUser } from "@/redux/services/auth/auth";
 import { ONBOARDING_ANSWERS_STORAGE_KEY } from "@/constants/onboarding";
+import { LandingThemeProvider, useLandingTheme, LandingThemeToggle } from "@/components/landingPage/landingTheme";
 // Onboarding submit API is temporarily disabled — the product flow changed and
 // a new integration will be wired up later. Service file is kept as-is for reuse.
 // import { useSubmitOnboardingAnswerMutation } from "@/redux/services/onboarding/onboarding";
@@ -131,6 +132,15 @@ function isValidWebsiteUrl(value: string): boolean {
 // ─── Page component ───────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  return (
+    <LandingThemeProvider>
+      <OnboardingScreen />
+    </LandingThemeProvider>
+  );
+}
+
+function OnboardingScreen() {
+  const { t } = useLandingTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
@@ -230,19 +240,26 @@ export default function OnboardingPage() {
   // Loading state while session is fetched on refresh
   if (sessionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-[var(--gold-primary)] animate-spin" />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div
+          className="w-8 h-8 rounded-full animate-spin"
+          style={{ border: `2px solid ${t.border}`, borderTopColor: t.gold }}
+        />
       </div>
     );
   }
+
+  const websiteHasError = answers.website.trim() !== "" && !isValidWebsiteUrl(answers.website);
+  const canGoNext = canProceed() && !isSubmitting;
 
   return (
     <div className="h-screen overflow-hidden relative flex flex-col">
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 flex-shrink-0">
         <Link href="/">
-          <Logo size="sm" />
+          <Logo size="sm" variant={t.isDark ? "dark" : "light"} />
         </Link>
+        <LandingThemeToggle />
       </div>
 
       {/* Main content — fills remaining height, no page scroll */}
@@ -250,7 +267,7 @@ export default function OnboardingPage() {
         <div className="w-full max-w-2xl">
           {/* Welcome screen */}
           {screen === "welcome" && (
-            <div className="bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl border border-white/10">
+            <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 20, transition: "background 0.4s, border-color 0.4s" }}>
               <WelcomeScreen
                 onStart={() => transition(() => setScreen("questions"))}
               />
@@ -260,9 +277,8 @@ export default function OnboardingPage() {
           {/* Questions screen */}
           {screen === "questions" && stepConfig && (
             <div
-              className={`bg-[#1a1a1a]/60 backdrop-blur-xl rounded-2xl border border-white/10 p-6 sm:p-8 transition-opacity duration-200 ${
-                visible ? "opacity-100" : "opacity-0"
-              }`}
+              className={`p-6 sm:p-8 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
+              style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 20 }}
             >
               {/* Progress bar */}
               <div className="mb-5">
@@ -273,11 +289,21 @@ export default function OnboardingPage() {
               {stepConfig.type === "website" ? (
                 <div className="animate-fadeIn">
                   <div className="mb-4 sm:mb-5">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug">
+                    <h2
+                      style={{
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 400,
+                        fontSize: "clamp(20px, 3vw, 28px)",
+                        letterSpacing: "-0.01em",
+                        lineHeight: 1.25,
+                        color: t.fg,
+                        margin: 0,
+                      }}
+                    >
                       {stepConfig.question}
                     </h2>
                     {stepConfig.subtitle && (
-                      <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: t.fgMid, marginTop: 8, lineHeight: 1.6 }}>
                         {stepConfig.subtitle}
                       </p>
                     )}
@@ -289,14 +315,22 @@ export default function OnboardingPage() {
                     placeholder="https://yourwebsite.com"
                     value={answers.website}
                     onChange={(e) => handleSelect(e.target.value)}
-                    className={`w-full rounded-xl border bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:outline-none transition-colors duration-200 ${
-                      answers.website.trim() && !isValidWebsiteUrl(answers.website)
-                        ? "border-red-500/60 focus:border-red-500"
-                        : "border-white/10 focus:border-[var(--gold-primary)]"
-                    }`}
+                    style={{
+                      width: "100%",
+                      borderRadius: 12,
+                      border: `1px solid ${websiteHasError ? "#ef4444" : t.border}`,
+                      background: t.surface,
+                      padding: "12px 16px",
+                      fontFamily: "var(--font-body)",
+                      fontSize: 14,
+                      color: t.fg,
+                      outline: "none",
+                    }}
                   />
-                  {answers.website.trim() && !isValidWebsiteUrl(answers.website) && (
-                    <p className="text-red-400 text-xs mt-2">Enter a valid website URL, e.g. yourbusiness.com</p>
+                  {websiteHasError && (
+                    <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "#f87171", marginTop: 8 }}>
+                      Enter a valid website URL, e.g. yourbusiness.com
+                    </p>
                   )}
                 </div>
               ) : (
@@ -312,10 +346,11 @@ export default function OnboardingPage() {
               )}
 
               {/* Navigation */}
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+              <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors duration-200"
+                  className="flex items-center gap-1.5 transition-colors duration-200"
+                  style={{ fontFamily: "var(--font-body)", fontSize: 14, color: t.fgMid, background: "transparent", border: "none" }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -325,16 +360,23 @@ export default function OnboardingPage() {
 
                 <button
                   onClick={() => handleNext()}
-                  disabled={!canProceed() || isSubmitting}
-                  className={`flex items-center gap-2 px-7 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                    canProceed() && !isSubmitting
-                      ? "animate-button-gradient text-black hover:shadow-lg hover:shadow-[var(--gold-primary)]/20 hover:scale-[1.02]"
-                      : "bg-white/5 text-gray-600 cursor-not-allowed border border-white/10"
-                  }`}
+                  disabled={!canGoNext}
+                  className="flex items-center gap-2 transition-all duration-200"
+                  style={{
+                    fontFamily: "var(--font-body)",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    padding: "11px 28px",
+                    borderRadius: 10,
+                    border: "none",
+                    color: canGoNext ? t.ctaFg : t.fgFaint,
+                    background: canGoNext ? t.ctaBg : t.progressTrack,
+                    cursor: canGoNext ? "pointer" : "not-allowed",
+                  }}
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-600 border-t-gray-400 animate-spin" />
+                      <div className="w-4 h-4 rounded-full animate-spin" style={{ border: `2px solid ${t.fgFaint}`, borderTopColor: t.fgMid }} />
                       Saving...
                     </>
                   ) : (

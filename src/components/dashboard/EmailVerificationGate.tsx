@@ -6,12 +6,14 @@ import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { setEmailVerified } from "@/redux/services/auth/auth";
 import { streamEmailVerification, EmailVerificationApiError } from "@/lib/api/emailVerificationStream";
 import { toast } from "@/components/snakbar";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 // Wraps dashboard content that should stay locked (blurred + inert) until
 // the signed-in user's email is verified, with a top bar CTA to start
 // verification. Checks the live status from Cognito on mount rather than
 // trusting whatever emailVerified value happened to be cached locally.
 export default function EmailVerificationGate({ children }: { children: ReactNode }) {
+  const { t } = useLandingTheme();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
@@ -67,9 +69,12 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
   return (
     <>
       {showGate && (
-        <div className="flex items-center justify-between gap-4 flex-wrap rounded-xl border border-[var(--gold-primary)]/40 bg-[#2a1f0a] px-4 py-3 mb-5">
-          <div className="flex items-center gap-2.5 text-[13px] text-[#f4f0e8]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+        <div
+          className="flex items-center justify-between gap-4 flex-wrap rounded-xl px-4 py-3 mb-5"
+          style={{ border: `1px solid ${t.gold}66`, background: t.goldDim }}
+        >
+          <div className="flex items-center gap-2.5 text-[13px]" style={{ color: t.fg }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
               <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             Verify your email to unlock your dashboard.
@@ -77,8 +82,8 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
           <button
             onClick={handleVerifyClick}
             disabled={isSending}
-            className="rounded-lg px-4 py-1.5 text-[12.5px] font-semibold text-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg, var(--gold-primary), var(--gold-secondary))" }}
+            className="rounded-lg px-4 py-1.5 text-[12.5px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
           >
             {isSending ? "Sending…" : "Verify Email"}
           </button>
@@ -92,9 +97,12 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
 
         {showGate && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="bg-black/70 border border-[var(--gold-primary)]/40 rounded-2xl px-6 py-4 text-center backdrop-blur-sm">
-              <p className="text-[#f4f0e8] text-sm font-semibold mb-1">Email verification required</p>
-              <p className="text-[#9a9a9a] text-xs">Verify your email to view your dashboard.</p>
+            <div
+              className="rounded-2xl px-6 py-4 text-center backdrop-blur-sm"
+              style={{ background: "rgba(0,0,0,0.7)", border: `1px solid ${t.gold}66` }}
+            >
+              <p className="text-sm font-semibold mb-1" style={{ color: t.fg }}>Email verification required</p>
+              <p className="text-xs" style={{ color: t.fgMid }}>Verify your email to view your dashboard.</p>
             </div>
           </div>
         )}

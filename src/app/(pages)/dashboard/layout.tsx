@@ -1,6 +1,7 @@
 // src/app/dashboard/layout.tsx
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppNavbar from "@/components/common/AppNavbar";
+import { LandingThemeProvider } from "@/components/landingPage/landingTheme";
 
 export default function DashboardLayout({
   children,
@@ -9,8 +10,10 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <AppNavbar />
-      {children}
+      <LandingThemeProvider>
+        <AppNavbar />
+        {children}
+      </LandingThemeProvider>
     </ProtectedRoute>
   );
 }

@@ -14,6 +14,7 @@ import { streamProjectList, ProjectListStreamEvent } from "@/lib/api/projectList
 import { streamCreateProject, CreateProjectStreamEvent } from "@/lib/api/createProjectStream";
 import McpConnectorSidebar from "@/components/common/McpConnectorSidebar";
 import { toast } from "@/components/snakbar";
+import { useLandingTheme, LandingThemeToggle } from "@/components/landingPage/landingTheme";
 
 // Maps a project-list-detail or create-project lambda step event to the
 // single line the dashboard's live-activity MiniTerminal should show — every
@@ -38,9 +39,9 @@ function isValidWebsiteUrl(value: string) {
 // Fixed top-center pill navbar for every screen inside the authenticated app
 // (dashboard and anything added under the same layout going forward) — same
 // visual "setting" as the public landingPage/Navbar (fixed position, gold
-// palette, border-[#FEFEFE]/black-blur pill, rounded-xl, framer-motion
-// entrance), but its own component/rule since the content is authenticated-
-// only (app nav links + account/logout) instead of Login/Get Started.
+// palette, theme-aware pill), but its own component/rule since the content
+// is authenticated-only (app nav links + account/logout) instead of
+// Login/Get Started.
 const DashboardIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -84,7 +85,21 @@ const appLinks = [
     { href: "/dashboard/agents", label: "Agents", icon: AgentsIcon },
 ];
 
+// Six-dot grip icon — purely a visual affordance signaling the pill is
+// draggable, same as the landing page's Navbar; dragging still works from
+// anywhere on the pill's background, not just this icon.
+function DragHandleIcon({ color }: { color: string }) {
+    return (
+        <svg width="10" height="16" viewBox="0 0 12 18" fill="none" aria-hidden="true">
+            {[3, 9].map((cx) =>
+                [3, 9, 15].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.4" fill={color} />)
+            )}
+        </svg>
+    );
+}
+
 const AppNavbar = () => {
+    const { t } = useLandingTheme();
     const pathname = usePathname();
     const dispatch = useAppDispatch();
     const user = useAppSelector((state) => state.auth.user);
@@ -95,9 +110,8 @@ const AppNavbar = () => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isProjectOpen, setIsProjectOpen] = useState(false);
     // Real custom dropdown (trigger button + option panel) — native <select>
-    // can't be themed on this dark UI. Options come from `projects`
-    // (Redux), populated below by the project-list-detail lambda's "list"
-    // action.
+    // can't be themed on this UI. Options come from `projects` (Redux),
+    // populated below by the project-list-detail lambda's "list" action.
     const [isProjectSelectOpen, setIsProjectSelectOpen] = useState(false);
     const [isLoadingProjects, setIsLoadingProjects] = useState(false);
     const [switchingProjectId, setSwitchingProjectId] = useState<string | null>(null);
@@ -373,21 +387,41 @@ const AppNavbar = () => {
     const profileImage = profile?.profileImage || null;
     const initials = (firstName?.[0] || email?.[0] || "?").toUpperCase();
 
+    const navLinkStyle = (active: boolean): React.CSSProperties => ({
+        color: active ? t.gold : t.fgMid,
+        background: active ? t.stepActiveBg : "transparent",
+    });
+
+    const dropdownPanelStyle: React.CSSProperties = {
+        background: t.navBg,
+        border: `1px solid ${t.navBorder}`,
+        backdropFilter: "blur(20px)",
+    };
+
     return (
         <motion.nav
+            drag
+            dragMomentum={false}
+            dragElastic={0}
+            whileDrag={{ cursor: "grabbing", scale: 1.02 }}
             initial={{ opacity: 0, y: -24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="fixed top-[15px] left-1/2 -translate-x-1/2 w-fit max-w-[92%] z-50"
+            style={{ cursor: "grab" }}
         >
-            <div className="border border-[#FEFEFE] bg-black/60 backdrop-blur-sm rounded-xl">
+            <div style={{ border: `1px solid ${t.navBorder}`, background: t.navBg, backdropFilter: "blur(20px)", borderRadius: 14 }}>
                 <div className="flex items-center gap-6 h-11 px-3">
+                    <span title="Drag to move" style={{ display: "inline-flex", alignItems: "center", opacity: 0.5, flexShrink: 0 }}>
+                        <DragHandleIcon color={t.fgFaint} />
+                    </span>
+
                     {/* Not a link on purpose — this is the authenticated app's
                         navbar, and clicking the logo must never be a way to
                         leave the app for the public landing page without
                         going through logout. */}
-                    <div className="flex-shrink-0">
-                        <Logo size="sm" className="!text-[18px]" />
+                    <div className="flex-shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+                        <Logo size="sm" className="!text-[18px]" variant={t.isDark ? "dark" : "light"} />
                     </div>
 
                     <div className="hidden md:flex items-center gap-1">
@@ -398,11 +432,9 @@ const AppNavbar = () => {
                                 <Link
                                     key={link.href}
                                     href={link.href}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 ${
-                                        active
-                                            ? "text-[var(--gold-primary)] bg-[rgba(204,172,93,0.12)]"
-                                            : "text-[#918C94] hover:text-[var(--gold-primary)]"
-                                    }`}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200"
+                                    style={navLinkStyle(active)}
                                 >
                                     <Icon />
                                     {link.label}
@@ -417,13 +449,11 @@ const AppNavbar = () => {
                                         setIsProjectOpen((prev) => !prev);
                                         setIsProjectSelectOpen(false);
                                     }}
+                                    onPointerDown={(e) => e.stopPropagation()}
                                     aria-label="Project"
                                     aria-expanded={isProjectOpen}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 ${
-                                        isProjectOpen
-                                            ? "text-[var(--gold-primary)] bg-[rgba(204,172,93,0.12)]"
-                                            : "text-[#918C94] hover:text-[var(--gold-primary)]"
-                                    }`}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200"
+                                    style={navLinkStyle(isProjectOpen)}
                                 >
                                     <ProjectIcon />
                                     Project
@@ -436,10 +466,12 @@ const AppNavbar = () => {
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -8 }}
                                             transition={{ duration: 0.2, ease: "easeInOut" }}
-                                            className="absolute top-[calc(100%+10px)] left-0 w-[240px] border border-[#FEFEFE] bg-black/90 backdrop-blur-sm rounded-xl overflow-hidden"
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            className="absolute top-[calc(100%+10px)] left-0 w-[240px] rounded-xl overflow-hidden"
+                                            style={dropdownPanelStyle}
                                         >
-                                            <div className="px-3.5 pt-3 pb-1.5 text-[10px] font-semibold tracking-[0.06em] text-[#6b6b6b]">
-                                                SELECT PROJECT
+                                            <div style={{ fontFamily: "var(--font-body)" }} className="px-3.5 pt-3 pb-1.5 text-[10px] font-semibold tracking-[0.06em]" >
+                                                <span style={{ color: t.fgFaint }}>SELECT PROJECT</span>
                                             </div>
                                             <div className="px-3.5 pb-3">
                                                 <div className="relative">
@@ -447,13 +479,13 @@ const AppNavbar = () => {
                                                         type="button"
                                                         onClick={() => setIsProjectSelectOpen((o) => !o)}
                                                         disabled={isLoadingProjects && projects.length === 0}
-                                                        className={`w-full flex items-center justify-between gap-2 pl-3 pr-2.5 py-2 text-xs font-medium bg-[#2a2a2a]/50 backdrop-blur-sm border rounded-lg text-left transition-all disabled:opacity-50 ${
-                                                            isProjectSelectOpen
-                                                                ? "border-[var(--gold-primary)] ring-1 ring-[var(--gold-primary)]"
-                                                                : "border-gray-700/50"
-                                                        }`}
+                                                        className="w-full flex items-center justify-between gap-2 pl-3 pr-2.5 py-2 text-xs font-medium rounded-lg text-left transition-all disabled:opacity-50"
+                                                        style={{
+                                                            background: t.surface,
+                                                            border: `1px solid ${isProjectSelectOpen ? t.gold : t.border}`,
+                                                        }}
                                                     >
-                                                        <span className="text-white truncate">
+                                                        <span className="truncate" style={{ color: t.fg }}>
                                                             {isLoadingProjects && projects.length === 0
                                                                 ? "Loading projects…"
                                                                 : switchingProjectId
@@ -461,9 +493,10 @@ const AppNavbar = () => {
                                                                 : project.project_name}
                                                         </span>
                                                         <svg
-                                                            className={`w-3.5 h-3.5 text-gray-500 flex-none transition-transform duration-200 ${
+                                                            className={`w-3.5 h-3.5 flex-none transition-transform duration-200 ${
                                                                 isProjectSelectOpen ? "rotate-180" : ""
                                                             }`}
+                                                            style={{ color: t.fgFaint }}
                                                             fill="none"
                                                             stroke="currentColor"
                                                             viewBox="0 0 24 24"
@@ -475,9 +508,12 @@ const AppNavbar = () => {
                                                     {isProjectSelectOpen && (
                                                         <>
                                                             <div className="fixed inset-0 z-40" onClick={() => setIsProjectSelectOpen(false)} />
-                                                            <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[#1e1e1e] border border-gray-700/50 rounded-lg shadow-xl shadow-black/40 overflow-hidden max-h-[220px] overflow-y-auto">
+                                                            <div
+                                                                className="absolute top-full left-0 right-0 mt-1.5 z-50 rounded-lg overflow-hidden max-h-[220px] overflow-y-auto"
+                                                                style={{ background: t.card, border: `1px solid ${t.border}`, boxShadow: "0 12px 32px rgba(0,0,0,0.35)" }}
+                                                            >
                                                                 {projects.length === 0 ? (
-                                                                    <div className="px-3.5 py-2.5 text-xs text-gray-500">No projects yet.</div>
+                                                                    <div className="px-3.5 py-2.5 text-xs" style={{ color: t.fgFaint }}>No projects yet.</div>
                                                                 ) : (
                                                                     projects.map((p) => {
                                                                         const isActive = p.project_id === project.project_id;
@@ -488,18 +524,18 @@ const AppNavbar = () => {
                                                                                 type="button"
                                                                                 onClick={() => handleSelectProject(p)}
                                                                                 disabled={!!switchingProjectId}
-                                                                                className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2.5 text-xs transition-colors disabled:cursor-not-allowed ${
-                                                                                    isActive
-                                                                                        ? "bg-[var(--gold-primary)]/10 text-[var(--gold-primary)]"
-                                                                                        : "text-[#c9c2ae] hover:bg-white/5"
-                                                                                }`}
+                                                                                className="w-full flex items-center justify-between gap-2 text-left px-3.5 py-2.5 text-xs transition-colors disabled:cursor-not-allowed"
+                                                                                style={{
+                                                                                    background: isActive ? t.goldDim : "transparent",
+                                                                                    color: isActive ? t.gold : t.fgMid,
+                                                                                }}
                                                                             >
                                                                                 <span className="truncate">
                                                                                     {p.project_name}
-                                                                                    {p.isDefault && <span className="text-gray-600"> · Default</span>}
+                                                                                    {p.isDefault && <span style={{ color: t.fgFaint }}> · Default</span>}
                                                                                 </span>
                                                                                 {isSwitching ? (
-                                                                                    <span className="w-3 h-3 flex-none rounded-full border-2 border-gray-600 border-t-transparent animate-spin" />
+                                                                                    <span className="w-3 h-3 flex-none rounded-full border-2 animate-spin" style={{ borderColor: t.fgFaint, borderTopColor: "transparent" }} />
                                                                                 ) : isActive ? (
                                                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-none">
                                                                                         <polyline points="20 6 9 17 4 12" />
@@ -514,34 +550,37 @@ const AppNavbar = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="border-t border-[#FEFEFE]/20 py-1.5">
+                                            <div className="py-1.5" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
                                                 <Link
                                                     href="/dashboard/project"
                                                     onClick={() => setIsProjectOpen(false)}
-                                                    className="block w-full text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
+                                                    className="block w-full text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200"
+                                                    style={{ color: t.fgMid }}
                                                 >
                                                     View Project Details
                                                 </Link>
                                             </div>
-                                            <div className="border-t border-[#FEFEFE]/20 py-1.5">
+                                            <div className="py-1.5" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
                                                 <button
                                                     onClick={() => {
                                                         setIsProjectOpen(false);
                                                         setIsCreateModalOpen(true);
                                                     }}
-                                                    className="w-full flex items-center gap-1.5 text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
+                                                    className="w-full flex items-center gap-1.5 text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200"
+                                                    style={{ color: t.fgMid }}
                                                 >
                                                     <PlusIcon />
                                                     Create New Project
                                                 </button>
                                             </div>
-                                            <div className="border-t border-[#FEFEFE]/20 py-1.5">
+                                            <div className="py-1.5" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
                                                 <button
                                                     onClick={() => {
                                                         setIsProjectOpen(false);
                                                         setIsDeleteModalOpen(true);
                                                     }}
-                                                    className="w-full text-left px-3.5 py-2 text-xs font-medium text-red-400 hover:text-red-300 transition-colors duration-200"
+                                                    className="w-full text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200"
+                                                    style={{ color: "#f87171" }}
                                                 >
                                                     Delete Current Project
                                                 </button>
@@ -554,13 +593,11 @@ const AppNavbar = () => {
 
                         <button
                             onClick={() => setIsMcpSidebarOpen(true)}
+                            onPointerDown={(e) => e.stopPropagation()}
                             aria-label="Integrations"
                             aria-expanded={isMcpSidebarOpen}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 ${
-                                isMcpSidebarOpen
-                                    ? "text-[var(--gold-primary)] bg-[rgba(204,172,93,0.12)]"
-                                    : "text-[#918C94] hover:text-[var(--gold-primary)]"
-                            }`}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors duration-200"
+                            style={navLinkStyle(isMcpSidebarOpen)}
                         >
                             <ConnectorIcon />
                             Integrations
@@ -568,7 +605,9 @@ const AppNavbar = () => {
 
                         <button
                             aria-label="Notifications"
-                            className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200 text-xs font-medium"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md transition-colors duration-200 text-xs font-medium"
+                            style={{ color: t.fgMid }}
                         >
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -577,12 +616,18 @@ const AppNavbar = () => {
                             Notifications
                         </button>
 
+                        <div style={{ padding: "0 2px" }} onPointerDown={(e) => e.stopPropagation()}>
+                            <LandingThemeToggle />
+                        </div>
+
                         <div ref={profileRef} className="relative flex items-center">
                         <button
                             onClick={() => setIsProfileOpen((prev) => !prev)}
+                            onPointerDown={(e) => e.stopPropagation()}
                             aria-label="Profile"
                             aria-expanded={isProfileOpen}
-                            className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200 text-xs font-medium"
+                            className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md transition-colors duration-200 text-xs font-medium"
+                            style={{ color: t.fgMid }}
                         >
                             <svg
                                 className="h-3.5 w-3.5"
@@ -606,38 +651,46 @@ const AppNavbar = () => {
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -8 }}
                                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                                    className="absolute top-[calc(100%+10px)] right-0 w-[190px] border border-[#FEFEFE] bg-black/90 backdrop-blur-sm rounded-xl overflow-hidden"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="absolute top-[calc(100%+10px)] right-0 w-[190px] rounded-xl overflow-hidden"
+                                    style={dropdownPanelStyle}
                                 >
-                                    <div className="flex items-center gap-2.5 px-3.5 py-3 border-b border-[#FEFEFE]/20">
-                                        <div className="relative w-7 h-7 rounded-full overflow-hidden border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                                    <div className="flex items-center gap-2.5 px-3.5 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
+                                        <div
+                                            className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                                            style={{ border: `1px solid ${t.border}`, background: t.surface }}
+                                        >
                                             {profileImage ? (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img src={profileImage} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <span className="text-[10px] font-semibold text-[var(--gold-primary)]">{initials}</span>
+                                                <span className="text-[10px] font-semibold" style={{ color: t.gold }}>{initials}</span>
                                             )}
                                         </div>
-                                        <p className="text-xs font-semibold text-white truncate">{displayName}</p>
+                                        <p className="text-xs font-semibold truncate" style={{ color: t.fg }}>{displayName}</p>
                                     </div>
                                     <div className="py-1.5">
                                         <Link
                                             href="/dashboard/settings"
                                             onClick={() => setIsProfileOpen(false)}
-                                            className="block w-full text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200"
+                                            className="block w-full text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200"
+                                            style={{ color: t.fgMid }}
                                         >
                                             Settings
                                         </Link>
                                         <button
-                                            className="w-full text-left px-3.5 py-2 text-xs font-medium text-[var(--gold-primary)] hover:text-[var(--gold-light)] transition-colors duration-200"
+                                            className="w-full text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200"
+                                            style={{ color: t.gold }}
                                         >
                                             Upgrade Plan
                                         </button>
                                     </div>
-                                    <div className="border-t border-[#FEFEFE]/20 py-1.5">
+                                    <div className="py-1.5" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
                                         <button
                                             onClick={handleLogout}
                                             disabled={isSigningOut}
-                                            className="w-full text-left px-3.5 py-2 text-xs font-medium text-[#918C94] hover:text-[var(--gold-primary)] transition-colors duration-200 disabled:opacity-50"
+                                            className="w-full text-left px-3.5 py-2 text-xs font-medium transition-colors duration-200 disabled:opacity-50"
+                                            style={{ color: t.fgMid }}
                                         >
                                             {isSigningOut ? "Logging out…" : "Logout"}
                                         </button>
@@ -663,21 +716,22 @@ const AppNavbar = () => {
                     // stacking/containing-block context entirely.
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <div
-                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            className="absolute inset-0 backdrop-blur-sm"
+                            style={{ background: "rgba(0,0,0,0.6)" }}
                             onClick={() => {
                                 setIsCreateModalOpen(false);
                                 setNewProjectWebsite("");
                                 setCreateUrlError("");
                             }}
                         />
-                        <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-[#FEFEFE]/20 rounded-2xl p-6">
-                            <h3 className="text-base font-semibold text-white mb-2">Create new project</h3>
-                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                        <div className="relative w-full max-w-sm rounded-2xl p-6" style={{ background: t.card, border: `1px solid ${t.border}` }}>
+                            <h3 className="text-base font-semibold mb-2" style={{ color: t.fg }}>Create new project</h3>
+                            <p className="text-xs mb-4 leading-relaxed" style={{ color: t.fgFaint }}>
                                 Paste your website URL — Xlya names the project from your domain and
                                 automatically generates its ICP, competitors, and performance insights.
                             </p>
                             <div>
-                                <label className="block text-[10.5px] font-semibold tracking-[0.06em] uppercase text-gray-600 mb-1.5">
+                                <label className="block text-[10.5px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: t.fgFaint }}>
                                     Website URL
                                 </label>
                                 <input
@@ -688,11 +742,10 @@ const AppNavbar = () => {
                                         if (createUrlError) setCreateUrlError("");
                                     }}
                                     placeholder="https://www.notion.com"
-                                    className={`w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border rounded-lg text-white placeholder:text-gray-600 focus:outline-none transition-colors ${
-                                        createUrlError ? "border-red-500" : "border-[#2a2a2a] focus:border-[var(--gold-primary)]"
-                                    }`}
+                                    className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                                    style={{ background: t.surface, border: `1px solid ${createUrlError ? "#ef4444" : t.border}`, color: t.fg }}
                                 />
-                                {createUrlError && <p className="text-[11px] text-red-400 mt-1.5">{createUrlError}</p>}
+                                {createUrlError && <p className="text-[11px] mt-1.5" style={{ color: "#f87171" }}>{createUrlError}</p>}
                             </div>
                             <div className="flex items-center justify-end gap-3 mt-5">
                                 <button
@@ -702,7 +755,8 @@ const AppNavbar = () => {
                                         setNewProjectWebsite("");
                                         setCreateUrlError("");
                                     }}
-                                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                    className="px-4 py-2 text-xs font-medium transition-colors"
+                                    style={{ color: t.fgMid }}
                                 >
                                     Cancel
                                 </button>
@@ -722,7 +776,8 @@ const AppNavbar = () => {
                                         setCreateUrlError("");
                                         handleCreateProject(trimmed);
                                     }}
-                                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-[var(--gold-primary)] text-black hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="px-4 py-2 text-xs font-semibold rounded-lg hover:brightness-110 transition-all"
+                                    style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
                                 >
                                     Create project
                                 </button>
@@ -742,17 +797,18 @@ const AppNavbar = () => {
                     // whole screen.
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <div
-                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            className="absolute inset-0 backdrop-blur-sm"
+                            style={{ background: "rgba(0,0,0,0.6)" }}
                             onClick={() => !isDeletingProject && setIsDeleteModalOpen(false)}
                         />
-                        <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-red-900/40 rounded-2xl p-6">
-                            <h3 className="text-base font-semibold text-white mb-2">
+                        <div className="relative w-full max-w-sm rounded-2xl p-6" style={{ background: t.card, border: "1px solid rgba(239,68,68,0.35)" }}>
+                            <h3 className="text-base font-semibold mb-2" style={{ color: t.fg }}>
                                 Delete {project.project_name}?
                             </h3>
-                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                            <p className="text-xs mb-4 leading-relaxed" style={{ color: t.fgFaint }}>
                                 Xlya doesn&apos;t support multiple projects yet, so deleting your only project
                                 permanently deletes your entire account and all its data. This cannot be undone.
-                                Type your email ({email && <span className="text-gray-400">{email}</span>}) to
+                                Type your email ({email && <span style={{ color: t.fgMid }}>{email}</span>}) to
                                 confirm.
                             </p>
                             <input
@@ -760,7 +816,8 @@ const AppNavbar = () => {
                                 value={deleteConfirmEmail}
                                 onChange={(e) => setDeleteConfirmEmail(e.target.value)}
                                 placeholder={email || "your@email.com"}
-                                className="w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-red-500 transition-colors"
+                                className="w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors"
+                                style={{ background: t.surface, border: `1px solid ${t.border}`, color: t.fg }}
                             />
                             <div className="flex items-center justify-end gap-3 mt-5">
                                 <button
@@ -770,7 +827,8 @@ const AppNavbar = () => {
                                         setDeleteConfirmEmail("");
                                     }}
                                     disabled={isDeletingProject}
-                                    className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+                                    style={{ color: t.fgMid }}
                                 >
                                     Cancel
                                 </button>
@@ -781,7 +839,8 @@ const AppNavbar = () => {
                                         isDeletingProject ||
                                         deleteConfirmEmail.trim().toLowerCase() !== (email || "").toLowerCase()
                                     }
-                                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-40 disabled:hover:bg-red-600"
+                                    className="px-4 py-2 text-xs font-semibold rounded-lg transition-colors disabled:opacity-40"
+                                    style={{ background: "#dc2626", color: "#ffffff" }}
                                 >
                                     {isDeletingProject ? "Deleting…" : "Delete permanently"}
                                 </button>

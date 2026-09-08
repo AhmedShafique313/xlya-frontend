@@ -16,6 +16,7 @@ import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
 import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal";
 import { BUSINESS_TYPE_OPTIONS, CHALLENGE_OPTIONS, TEAM_SIZE_OPTIONS } from "@/constants/onboarding";
 import { toast } from "@/components/snakbar";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 // Matches the font used on the main dashboard (src/app/(pages)/dashboard/page.tsx)
 // so this page reads as the same product, not a bolted-on settings screen.
@@ -24,12 +25,6 @@ const archivo = Archivo({
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-archivo",
 });
-
-// Shared keyboard-focus ring — every icon-only / low-contrast control below
-// uses this instead of relying on the browser default outline, which reads
-// poorly against this page's near-black surfaces.
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-primary)]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]";
 
 const MAX_FILES = 5;
 // Matches the Lambda's ALLOWED_EXTENSIONS exactly — client-side rejection
@@ -45,8 +40,6 @@ const FILE_ICON_STYLE: Record<string, { bg: string; label: string }> = {
   pdf: { bg: "#e0806b", label: "PDF" },
   txt: { bg: "#9a9a9a", label: "TXT" },
   docx: { bg: "#6b9ae0", label: "DOC" },
-  ppt: { bg: "var(--gold-primary)", label: "PPT" },
-  pptx: { bg: "var(--gold-primary)", label: "PPT" },
 };
 const FALLBACK_FILE_ICON = { bg: "#6b6b6b", label: "FILE" };
 
@@ -61,12 +54,20 @@ function eventToLine(event: ProjectContentStreamEvent): MiniTerminalLine | null 
 }
 
 export default function ProjectDetailsPage() {
+  const { t } = useLandingTheme();
   const project = useAppSelector((state) => state.auth.project);
   const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const projectId = project?.project_id;
   const [settings, setSettings] = useState<SettingsUser | null>(null);
+
+  // Shared keyboard-focus ring — every icon-only / low-contrast control
+  // below uses this instead of relying on the browser default outline.
+  // --gold-primary is a fixed CSS var (not per-theme), so this works without
+  // extra plumbing regardless of light/dark.
+  const FOCUS_RING =
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-primary)]/70 focus-visible:ring-offset-2";
 
   useEffect(() => {
     if (!accessToken) return;
@@ -341,15 +342,21 @@ export default function ProjectDetailsPage() {
 
   const initial = (nameDraft || displayProject.project_name || "?").trim().charAt(0).toUpperCase();
 
+  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
+  const dangerCardStyle: React.CSSProperties = { border: "1px solid rgba(239,68,68,0.35)", background: t.card };
+  const tagStyle: React.CSSProperties = { border: `1px solid ${t.border}`, color: t.fgMid };
+  const ccIconTag: React.CSSProperties = { background: t.goldDim };
+  const inputStyle: React.CSSProperties = { background: t.surface, border: `1px solid ${t.border}`, color: t.fg };
+
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px] text-[#f4f0e8]`}>
+    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]`} style={{ color: t.fg }}>
       <div className="w-full max-w-[1440px] min-w-0">
         {/* Header — editable project name, locked URL, business profile */}
-        <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 md:p-7 mb-6">
+        <div className="rounded-2xl p-6 md:p-7 mb-6" style={cardStyle}>
           <div className="flex items-start gap-4 flex-wrap">
             <div
-              className="w-14 h-14 flex-none rounded-2xl flex items-center justify-center text-xl font-bold text-[#0a0a0a]"
-              style={{ background: "linear-gradient(135deg, var(--gold-light), var(--gold-primary))" }}
+              className="w-14 h-14 flex-none rounded-2xl flex items-center justify-center text-xl font-bold"
+              style={{ background: `linear-gradient(135deg, ${t.gold}, ${t.isDark ? "#8a6928" : "#a68a3f"})`, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
             >
               {initial}
             </div>
@@ -369,13 +376,14 @@ export default function ProjectDetailsPage() {
                           setIsEditingName(false);
                         }
                       }}
-                      className={`text-2xl font-bold bg-[#161616] border border-[var(--gold-primary)]/50 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-[var(--gold-primary)] transition-colors min-w-[240px] ${FOCUS_RING}`}
+                      className={`text-2xl font-bold rounded-lg px-3 py-1.5 focus:outline-none transition-colors min-w-[240px] ${FOCUS_RING}`}
+                      style={{ ...inputStyle, borderColor: `${t.gold}80` }}
                     />
                     <button
                       type="button"
                       onClick={commitName}
-                      className={`w-9 h-9 flex items-center justify-center rounded-lg text-black transition-transform duration-150 hover:scale-105 active:scale-95 ${FOCUS_RING}`}
-                      style={{ background: "var(--gold-primary)" }}
+                      className={`w-9 h-9 flex items-center justify-center rounded-lg transition-transform duration-150 hover:scale-105 active:scale-95 ${FOCUS_RING}`}
+                      style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
                       aria-label="Save name"
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -388,7 +396,8 @@ export default function ProjectDetailsPage() {
                         setNameDraft(displayProject.project_name);
                         setIsEditingName(false);
                       }}
-                      className={`w-9 h-9 flex items-center justify-center rounded-lg border border-[#232323] text-gray-500 hover:text-white hover:border-[#333] transition-colors duration-150 ${FOCUS_RING}`}
+                      className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors duration-150 ${FOCUS_RING}`}
+                      style={{ border: `1px solid ${t.border}`, color: t.fgFaint }}
                       aria-label="Cancel"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -404,7 +413,7 @@ export default function ProjectDetailsPage() {
                     aria-label="Edit project name"
                     className={`group flex items-center gap-2.5 text-left rounded-lg -mx-1 px-1 transition-colors duration-150 ${FOCUS_RING}`}
                   >
-                    <h1 className="text-2xl font-bold text-white">{nameDraft || displayProject.project_name}</h1>
+                    <h1 className="text-2xl font-bold" style={{ color: t.fg }}>{nameDraft || displayProject.project_name}</h1>
                     <svg
                       width="15"
                       height="15"
@@ -412,7 +421,8 @@ export default function ProjectDetailsPage() {
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
-                      className="text-gray-600 group-hover:text-[var(--gold-primary)] transition-colors duration-150 flex-none"
+                      className="transition-colors duration-150 flex-none"
+                      style={{ color: t.fgFaint }}
                     >
                       <path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z" />
                     </svg>
@@ -421,23 +431,24 @@ export default function ProjectDetailsPage() {
                 {displayProject.isDefault && (
                   <span
                     className="text-[10px] font-semibold tracking-[0.06em] uppercase px-2 py-1 rounded-md flex-none"
-                    style={{ color: "var(--gold-primary)", background: "rgba(204,172,93,0.12)" }}
+                    style={{ color: t.gold, background: t.goldDim }}
                   >
                     Default project
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1.5 mt-2.5 text-[12.5px] text-gray-500">
+              <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1.5 mt-2.5 text-[12.5px]" style={{ color: t.fgFaint }}>
                 <span className="inline-flex items-center gap-1.5">
-                  <svg width="12.5" height="12.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-none text-gray-600">
+                  <svg width="12.5" height="12.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-none">
                     <rect x="3" y="11" width="18" height="10" rx="2" />
                     <path d="M7 11V7a5 5 0 0110 0v4" />
                   </svg>
                   {displayProject.website_url || "No website added"}
                 </span>
                 <span
-                  className="inline-flex items-center gap-1 text-[9.5px] font-semibold tracking-[0.05em] uppercase text-gray-600 border border-[#232323] rounded px-1.5 py-0.5"
+                  className="inline-flex items-center gap-1 text-[9.5px] font-semibold tracking-[0.05em] uppercase rounded px-1.5 py-0.5"
+                  style={{ border: `1px solid ${t.border}` }}
                   title="The project URL can't be changed after creation"
                 >
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -448,7 +459,7 @@ export default function ProjectDetailsPage() {
                 </span>
                 {createdLabel && (
                   <>
-                    <span className="text-gray-700">·</span>
+                    <span>·</span>
                     <span>Created {createdLabel}</span>
                   </>
                 )}
@@ -457,8 +468,8 @@ export default function ProjectDetailsPage() {
           </div>
 
           {hasBusinessProfile && (
-            <div className="flex flex-wrap items-center gap-2 mt-5 pt-5 border-t border-[#1c1c1c]">
-              <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.06em] uppercase text-gray-600 mr-1">
+            <div className="flex flex-wrap items-center gap-2 mt-5 pt-5" style={{ borderTop: `1px solid ${t.border}` }}>
+              <span className="flex items-center gap-1.5 text-[10.5px] font-semibold tracking-[0.06em] uppercase mr-1" style={{ color: t.fgFaint }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="2" y="7" width="20" height="14" rx="2" />
                   <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
@@ -466,17 +477,17 @@ export default function ProjectDetailsPage() {
                 Business profile
               </span>
               {businessTypeLabel && (
-                <span className="border border-[#232323] rounded-lg px-2.5 py-1 text-[11px] font-medium text-[#9a9a9a]">
+                <span className="rounded-lg px-2.5 py-1 text-[11px] font-medium" style={tagStyle}>
                   {businessTypeLabel}
                 </span>
               )}
               {challengeLabel && (
-                <span className="border border-[#232323] rounded-lg px-2.5 py-1 text-[11px] font-medium text-[#9a9a9a]">
+                <span className="rounded-lg px-2.5 py-1 text-[11px] font-medium" style={tagStyle}>
                   {challengeLabel}
                 </span>
               )}
               {teamSizeLabel && (
-                <span className="border border-[#232323] rounded-lg px-2.5 py-1 text-[11px] font-medium text-[#9a9a9a]">
+                <span className="rounded-lg px-2.5 py-1 text-[11px] font-medium" style={tagStyle}>
                   {teamSizeLabel}
                 </span>
               )}
@@ -487,13 +498,13 @@ export default function ProjectDetailsPage() {
               card (was previously its own standalone panel) so the page
               reads as one consolidated project-info card, not several
               disconnected boxes stacked on top of each other. */}
-          <div className="flex gap-3 mt-5 pt-5 border-t border-[#1c1c1c]">
+          <div className="flex gap-3 mt-5 pt-5" style={{ borderTop: `1px solid ${t.border}` }}>
             <svg
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="var(--gold-primary)"
+              stroke={t.gold}
               strokeWidth="2"
               className="flex-none mt-0.5"
             >
@@ -501,9 +512,9 @@ export default function ProjectDetailsPage() {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <div className="text-[12px] text-[#c9c2ae] leading-relaxed">
-              <p className="font-semibold text-[#f4f0e8] mb-1.5">Before you edit this project&apos;s knowledge</p>
-              <ul className="space-y-1 list-disc list-inside marker:text-[var(--gold-primary)]">
+            <div className="text-[12px] leading-relaxed" style={{ color: t.fgMid }}>
+              <p className="font-semibold mb-1.5" style={{ color: t.fg }}>Before you edit this project&apos;s knowledge</p>
+              <ul className="space-y-1 list-disc list-inside">
                 <li>Only add information that&apos;s relevant to this project — irrelevant content dilutes results.</li>
                 <li>Deleting a description, instruction, or file removes it from this project&apos;s RAG immediately.</li>
                 <li>Deleting the project deletes everything associated with it — all files, description, and instructions.</li>
@@ -516,14 +527,11 @@ export default function ProjectDetailsPage() {
             both flex-col) so one column's content length can't leave a
             visually empty gap under the shorter card. */}
         <div className="grid gap-4 mb-4 lg:grid-cols-2 items-stretch">
-          <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 flex flex-col">
+          <div className="rounded-2xl p-6 flex flex-col" style={cardStyle}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 flex-none rounded-lg flex items-center justify-center"
-                  style={{ background: "rgba(204,172,93,0.12)" }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="w-8 h-8 flex-none rounded-lg flex items-center justify-center" style={ccIconTag}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="8" y1="13" x2="16" y2="13" />
@@ -531,11 +539,11 @@ export default function ProjectDetailsPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-[13px] font-semibold text-[#f4f0e8]">Description</div>
-                  <div className="text-[10.5px] text-gray-600">What Xlya knows about this project</div>
+                  <div className="text-[13px] font-semibold" style={{ color: t.fg }}>Description</div>
+                  <div className="text-[10.5px]" style={{ color: t.fgFaint }}>What Xlya knows about this project</div>
                 </div>
               </div>
-              <span className="text-[10.5px] text-gray-600 flex-none">
+              <span className="text-[10.5px] flex-none" style={{ color: t.fgFaint }}>
                 {descriptionDraft.length}/{MAX_DESCRIPTION_CHARS}
               </span>
             </div>
@@ -550,15 +558,16 @@ export default function ProjectDetailsPage() {
                   ? "Loading…"
                   : "What is this project about? Keep it specific to help Xlya generate relevant content."
               }
-              className={`w-full flex-1 min-h-[160px] resize-none bg-[#161616] border border-[#232323] rounded-lg px-3.5 py-3 text-[13px] text-[#f4f0e8] placeholder:text-gray-600 focus:outline-none focus:border-[var(--gold-primary)] transition-colors duration-150 leading-relaxed disabled:opacity-50 ${FOCUS_RING}`}
+              className={`w-full flex-1 min-h-[160px] resize-none rounded-lg px-3.5 py-3 text-[13px] focus:outline-none transition-colors duration-150 leading-relaxed disabled:opacity-50 ${FOCUS_RING}`}
+              style={inputStyle}
             />
 
-            <div className="mt-3 h-1 rounded-full bg-[#1c1c1c] overflow-hidden">
+            <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: t.barInactive }}>
               <div
                 className="h-full rounded-full transition-[width] duration-300"
                 style={{
                   width: `${Math.min((descriptionDraft.length / MAX_DESCRIPTION_CHARS) * 100, 100)}%`,
-                  background: "linear-gradient(90deg, var(--gold-light), var(--gold-primary))",
+                  background: t.gold,
                 }}
               />
             </div>
@@ -568,7 +577,8 @@ export default function ProjectDetailsPage() {
                 type="button"
                 onClick={saveDescription}
                 disabled={!isDescriptionDirty || isSavingDescription || !projectId}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg bg-[var(--gold-primary)] text-black hover:brightness-110 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg hover:brightness-110 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
               >
                 {isSavingDescription ? "Saving…" : "Save description"}
               </button>
@@ -578,15 +588,12 @@ export default function ProjectDetailsPage() {
               <MiniTerminal line={descriptionLine} />
             </div>
 
-            <div className="flex flex-wrap gap-1.5 mt-4 pt-4 border-t border-[#1c1c1c]">
-              <span className="w-full text-[10px] font-semibold tracking-[0.06em] uppercase text-gray-600 mb-0.5">
+            <div className="flex flex-wrap gap-1.5 mt-4 pt-4" style={{ borderTop: `1px solid ${t.border}` }}>
+              <span className="w-full text-[10px] font-semibold tracking-[0.06em] uppercase mb-0.5" style={{ color: t.fgFaint }}>
                 Good descriptions mention
               </span>
               {["Target audience", "Tone of voice", "Core offer", "What to avoid"].map((tip) => (
-                <span
-                  key={tip}
-                  className="text-[11px] font-medium text-[#9a9a9a] border border-[#232323] rounded-lg px-2.5 py-1"
-                >
+                <span key={tip} className="text-[11px] font-medium rounded-lg px-2.5 py-1" style={tagStyle}>
                   {tip}
                 </span>
               ))}
@@ -594,27 +601,24 @@ export default function ProjectDetailsPage() {
           </div>
 
           {/* Knowledge base files */}
-          <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 flex flex-col">
+          <div className="rounded-2xl p-6 flex flex-col" style={cardStyle}>
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 flex-none rounded-lg flex items-center justify-center"
-                  style={{ background: "rgba(204,172,93,0.12)" }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="w-8 h-8 flex-none rounded-lg flex items-center justify-center" style={ccIconTag}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
                   </svg>
                 </div>
                 <div>
-                  <div className="text-[13px] font-semibold text-[#f4f0e8]">Knowledge base files</div>
-                  <div className="text-[10.5px] text-gray-600">PDF, TXT, DOCX, or PPT</div>
+                  <div className="text-[13px] font-semibold" style={{ color: t.fg }}>Knowledge base files</div>
+                  <div className="text-[10.5px]" style={{ color: t.fgFaint }}>PDF, TXT, DOCX, or PPT</div>
                 </div>
               </div>
-              <span className="text-[11px] font-medium text-gray-500 flex-none">
+              <span className="text-[11px] font-medium flex-none" style={{ color: t.fgMid }}>
                 {files.length}/{MAX_FILES} used
               </span>
             </div>
-            <p className="text-[11.5px] text-gray-600 mb-4 mt-2.5">Up to {MAX_FILES} files, used to ground Xlya's answers in this project's own material.</p>
+            <p className="text-[11.5px] mb-4 mt-2.5" style={{ color: t.fgFaint }}>Up to {MAX_FILES} files, used to ground Xlya&apos;s answers in this project&apos;s own material.</p>
 
             <input
               ref={fileInputRef}
@@ -642,25 +646,25 @@ export default function ProjectDetailsPage() {
                 setIsDraggingFile(false);
                 if (files.length + uploadingCount < MAX_FILES) handleFilesSelected(e.dataTransfer.files);
               }}
-              className={`w-full flex flex-col items-center justify-center gap-2 border border-dashed rounded-xl py-7 mb-4 text-center transition-colors duration-150 disabled:opacity-40 disabled:hover:border-[#2a2a2a] disabled:cursor-not-allowed ${FOCUS_RING} ${
-                isDraggingFile
-                  ? "border-[var(--gold-primary)] bg-[var(--gold-primary)]/[0.06]"
-                  : "border-[#2a2a2a] hover:border-[var(--gold-primary)]/50"
-              }`}
+              className={`w-full flex flex-col items-center justify-center gap-2 border border-dashed rounded-xl py-7 mb-4 text-center transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+              style={{
+                borderColor: isDraggingFile ? t.gold : t.border,
+                background: isDraggingFile ? t.goldDim : "transparent",
+              }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <span className="text-[12.5px] font-medium text-[#f4f0e8]">
+              <span className="text-[12.5px] font-medium" style={{ color: t.fg }}>
                 {files.length + uploadingCount >= MAX_FILES
                   ? "File limit reached"
                   : isDraggingFile
                   ? "Drop to add"
                   : "Drop files here or click to browse"}
               </span>
-              <span className="text-[11px] text-gray-600">.pdf · .txt · .docx · .ppt</span>
+              <span className="text-[11px]" style={{ color: t.fgFaint }}>.pdf · .txt · .docx · .ppt</span>
             </button>
 
             {files.length > 0 || uploadingCount > 0 ? (
@@ -671,17 +675,18 @@ export default function ProjectDetailsPage() {
                   return (
                     <div
                       key={f.document_id}
-                      className="flex items-center gap-3 border border-[#1c1c1c] rounded-xl px-3.5 py-2.5 transition-colors duration-150 hover:border-[#2a2a2a]"
+                      className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 transition-colors duration-150"
+                      style={{ border: `1px solid ${t.border}` }}
                     >
                       <div
-                        className="w-8 h-8 flex-none rounded-lg flex items-center justify-center text-[9.5px] font-bold text-[#0a0a0a]"
-                        style={{ background: style.bg }}
+                        className="w-8 h-8 flex-none rounded-lg flex items-center justify-center text-[9.5px] font-bold"
+                        style={{ background: style.bg, color: "#0a0a0a" }}
                       >
                         {style.label}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium text-[#f4f0e8] truncate">{f.name}</div>
-                        <div className="text-[10.5px] text-gray-600">
+                        <div className="text-[12.5px] font-medium truncate" style={{ color: t.fg }}>{f.name}</div>
+                        <div className="text-[10.5px]" style={{ color: t.fgFaint }}>
                           {f.sizeLabel}
                           {f.addedLabel ? ` · Added ${new Date(f.addedLabel).toLocaleDateString()}` : ""}
                         </div>
@@ -690,11 +695,12 @@ export default function ProjectDetailsPage() {
                         type="button"
                         onClick={() => removeFile(f.document_id, f.name)}
                         disabled={isDeleting}
-                        className={`w-9 h-9 flex-none flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                        className={`w-9 h-9 flex-none flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+                        style={{ color: t.fgFaint }}
                         aria-label={`Remove ${f.name}`}
                       >
                         {isDeleting ? (
-                          <span className="w-3.5 h-3.5 rounded-full border-2 border-gray-600 border-t-transparent animate-spin" />
+                          <span className="w-3.5 h-3.5 rounded-full border-2 animate-spin" style={{ borderColor: t.fgFaint, borderTopColor: "transparent" }} />
                         ) : (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6" />
@@ -708,33 +714,34 @@ export default function ProjectDetailsPage() {
                 {Array.from({ length: uploadingCount }).map((_, i) => (
                   <div
                     key={`uploading-${i}`}
-                    className="flex items-center gap-3 border border-[#1c1c1c] rounded-xl px-3.5 py-2.5 opacity-60"
+                    className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 opacity-60"
+                    style={{ border: `1px solid ${t.border}` }}
                   >
-                    <span className="w-8 h-8 flex-none rounded-lg border-2 border-gray-600 border-t-transparent animate-spin" />
-                    <div className="text-[12.5px] font-medium text-gray-500">Uploading…</div>
+                    <span className="w-8 h-8 flex-none rounded-lg border-2 animate-spin" style={{ borderColor: t.fgFaint, borderTopColor: "transparent" }} />
+                    <div className="text-[12.5px] font-medium" style={{ color: t.fgMid }}>Uploading…</div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11.5px] text-gray-600 text-center py-2">
+                <p className="text-[11.5px] text-center py-2" style={{ color: t.fgFaint }}>
                   {isLoadingProject ? "Loading…" : "No files added yet."}
                 </p>
               </div>
             )}
 
-            <div className="mt-4 pt-4 border-t border-[#1c1c1c]">
-              <div className="h-1 rounded-full bg-[#1c1c1c] overflow-hidden mb-3">
+            <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${t.border}` }}>
+              <div className="h-1 rounded-full overflow-hidden mb-3" style={{ background: t.barInactive }}>
                 <div
                   className="h-full rounded-full transition-[width] duration-300"
                   style={{
                     width: `${Math.min((files.length / MAX_FILES) * 100, 100)}%`,
-                    background: "linear-gradient(90deg, var(--gold-light), var(--gold-primary))",
+                    background: t.gold,
                   }}
                 />
               </div>
-              <p className="text-[10.5px] text-gray-600 flex items-center gap-1.5">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-none text-gray-600">
+              <p className="text-[10.5px] flex items-center gap-1.5" style={{ color: t.fgFaint }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-none">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 8v4l2.5 2.5" />
                 </svg>
@@ -750,11 +757,11 @@ export default function ProjectDetailsPage() {
         <MarketAnalysis />
 
         {/* Danger zone — mirrors AppNavbar's real delete-project modal. */}
-        <div className="border border-red-900/40 bg-[#0f0f0f] rounded-2xl p-6 mt-4">
+        <div className="rounded-2xl p-6 mt-4" style={dangerCardStyle}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-sm font-semibold text-white mb-1">Danger zone</h2>
-              <p className="text-[12px] text-gray-500">
+              <h2 className="text-sm font-semibold mb-1" style={{ color: t.fg }}>Danger zone</h2>
+              <p className="text-[12px]" style={{ color: t.fgMid }}>
                 Deleting this project removes its description, instructions, and all {files.length} attached
                 file{files.length === 1 ? "" : "s"} — permanently.
               </p>
@@ -763,7 +770,8 @@ export default function ProjectDetailsPage() {
               type="button"
               onClick={() => setIsDeleteModalOpen(true)}
               disabled={isDeletingProject || !projectId}
-              className={`px-4 py-2.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors duration-150 flex-none disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+              className={`px-4 py-2.5 text-xs font-semibold rounded-lg transition-colors duration-150 flex-none disabled:opacity-40 disabled:cursor-not-allowed ${FOCUS_RING}`}
+              style={{ background: "#dc2626", color: "#ffffff" }}
             >
               {isDeletingProject ? "Deleting…" : "Delete project"}
             </button>
@@ -776,12 +784,12 @@ export default function ProjectDetailsPage() {
 
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
-          <div className="relative w-full max-w-sm bg-[#0f0f0f] border border-red-900/40 rounded-2xl p-6">
-            <h3 className="text-base font-semibold text-white mb-2">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setIsDeleteModalOpen(false)} />
+          <div className="relative w-full max-w-sm rounded-2xl p-6" style={dangerCardStyle}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: t.fg }}>
               Delete {displayProject.project_name}?
             </h3>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            <p className="text-xs mb-4 leading-relaxed" style={{ color: t.fgMid }}>
               This permanently deletes the description, instructions, and all attached files for this project.
               This cannot be undone. Type the project name to confirm.
             </p>
@@ -789,7 +797,8 @@ export default function ProjectDetailsPage() {
               value={deleteConfirmName}
               onChange={(e) => setDeleteConfirmName(e.target.value)}
               placeholder={displayProject.project_name}
-              className={`w-full px-3.5 py-2.5 text-[0.8rem] bg-[#161616] border border-[#2a2a2a] rounded-lg text-white placeholder:text-gray-600 focus:outline-none focus:border-red-500 transition-colors duration-150 ${FOCUS_RING}`}
+              className={`w-full px-3.5 py-2.5 text-[0.8rem] rounded-lg focus:outline-none transition-colors duration-150 ${FOCUS_RING}`}
+              style={inputStyle}
             />
             <div className="flex items-center justify-end gap-3 mt-5">
               <button
@@ -798,7 +807,8 @@ export default function ProjectDetailsPage() {
                   setIsDeleteModalOpen(false);
                   setDeleteConfirmName("");
                 }}
-                className={`px-4 py-2 text-xs font-medium text-gray-400 hover:text-white transition-colors duration-150 rounded-lg ${FOCUS_RING}`}
+                className={`px-4 py-2 text-xs font-medium transition-colors duration-150 rounded-lg ${FOCUS_RING}`}
+                style={{ color: t.fgMid }}
               >
                 Cancel
               </button>
@@ -806,7 +816,8 @@ export default function ProjectDetailsPage() {
                 type="button"
                 disabled={deleteConfirmName.trim() !== displayProject.project_name}
                 onClick={confirmDeleteProject}
-                className={`px-4 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors duration-150 disabled:opacity-40 disabled:hover:bg-red-600 ${FOCUS_RING}`}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors duration-150 disabled:opacity-40 ${FOCUS_RING}`}
+                style={{ background: "#dc2626", color: "#ffffff" }}
               >
                 Delete permanently
               </button>

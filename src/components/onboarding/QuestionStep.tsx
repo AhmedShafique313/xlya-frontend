@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import OptionCard from "./OptionCard";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 interface Option {
   value: string;
@@ -28,6 +31,8 @@ export default function QuestionStep({
   multi = false,
   columns = 2,
 }: QuestionStepProps) {
+  const { t } = useLandingTheme();
+
   const gridColsMap: Record<1 | 2 | 3, string> = {
     1: "grid-cols-1",
     2: "grid-cols-1 sm:grid-cols-2",
@@ -48,16 +53,29 @@ export default function QuestionStep({
     <div className="animate-fadeIn">
       {/* Header */}
       <div className="mb-4 sm:mb-5">
-        <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug">
+        <h2
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 400,
+            fontSize: "clamp(20px, 3vw, 28px)",
+            letterSpacing: "-0.01em",
+            lineHeight: 1.25,
+            color: t.fg,
+            margin: 0,
+          }}
+        >
           {question}
         </h2>
         {subtitle && (
-          <p className="text-gray-400 text-sm mt-2 leading-relaxed">{subtitle}</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: t.fgMid, marginTop: 8, lineHeight: 1.6 }}>
+            {subtitle}
+          </p>
         )}
         {multi && (
           <div className="flex items-center gap-1.5 mt-2">
             <svg
-              className="w-3.5 h-3.5 text-[var(--gold-primary)]/70 flex-shrink-0"
+              className="w-3.5 h-3.5 flex-shrink-0"
+              style={{ color: t.gold }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -69,7 +87,7 @@ export default function QuestionStep({
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-[var(--gold-primary)]/70 text-xs">
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 12, color: t.gold }}>
               Select all that apply
             </span>
           </div>

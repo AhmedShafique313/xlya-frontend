@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 export interface LoadingStep {
   id: string;
@@ -24,8 +25,10 @@ const RADIUS = 80;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function LoadingScreen({ currentStep, activity, progress }: LoadingScreenProps) {
+  const { t } = useLandingTheme();
   const clampedProgress = Math.round(Math.min(Math.max(progress, 0), 100));
   const strokeDashoffset = CIRCUMFERENCE * (1 - clampedProgress / 100);
+  const checkColor = t.isDark ? "#0a0a0a" : "#faf8f4";
 
   return (
     <div className="flex flex-col items-center justify-center text-center px-6 sm:px-10 lg:px-16 py-8 sm:py-10 animate-fadeIn">
@@ -33,13 +36,13 @@ export default function LoadingScreen({ currentStep, activity, progress }: Loadi
       <div className="relative mb-8 h-44 w-44">
         <svg width="100%" height="100%" viewBox="0 0 200 200" role="img" aria-label={`Progress: ${clampedProgress}%`}>
           <g transform="rotate(-90, 100, 100)">
-            <circle cx="100" cy="100" r={RADIUS} fill="transparent" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
+            <circle cx="100" cy="100" r={RADIUS} fill="transparent" stroke={t.progressTrack} strokeWidth="12" />
             <motion.circle
               cx="100"
               cy="100"
               r={RADIUS}
               fill="transparent"
-              stroke="var(--gold-primary)"
+              stroke={t.gold}
               strokeWidth="12"
               strokeLinecap="round"
               strokeDasharray={CIRCUMFERENCE}
@@ -50,9 +53,12 @@ export default function LoadingScreen({ currentStep, activity, progress }: Loadi
           </g>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-white">{clampedProgress}%</span>
-          <div className="w-9 h-9 rounded-full bg-[var(--gold-primary)]/10 border border-[var(--gold-primary)]/20 flex items-center justify-center mt-1.5">
-            <svg className="w-4 h-4 text-[var(--gold-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 30, color: t.fg }}>{clampedProgress}%</span>
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center mt-1.5"
+            style={{ background: t.goldDim, border: `1px solid ${t.gold}33` }}
+          >
+            <svg className="w-4 h-4" style={{ color: t.gold }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -65,10 +71,10 @@ export default function LoadingScreen({ currentStep, activity, progress }: Loadi
       </div>
 
       {/* Title */}
-      <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+      <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "clamp(20px, 3vw, 26px)", color: t.fg, margin: "0 0 8px" }}>
         Xlya is customizing your workspace…
       </h2>
-      <p className="text-gray-500 text-sm mb-8 min-h-[1.25rem]">
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: t.fgDim, marginBottom: 32, minHeight: 20 }}>
         {activity || "Hang tight, we're setting things up for you"}
       </p>
 
@@ -86,16 +92,17 @@ export default function LoadingScreen({ currentStep, activity, progress }: Loadi
               className="flex items-center gap-3 w-full"
             >
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                style={
                   currentStep.status === "completed"
-                    ? "bg-[var(--gold-primary)] shadow-md shadow-[var(--gold-primary)]/30"
+                    ? { background: t.gold }
                     : currentStep.status === "failed"
-                    ? "bg-amber-500/15 border border-amber-500/40"
-                    : "bg-white/5 border border-white/20"
-                }`}
+                    ? { background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)" }
+                    : { background: t.surface, border: `1px solid ${t.border}` }
+                }
               >
                 {currentStep.status === "completed" ? (
-                  <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" style={{ color: checkColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : currentStep.status === "failed" ? (
@@ -108,13 +115,17 @@ export default function LoadingScreen({ currentStep, activity, progress }: Loadi
                     />
                   </svg>
                 ) : (
-                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--gold-primary)] animate-pulse" />
+                  <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: t.gold }} />
                 )}
               </div>
               <span
-                className={`text-sm font-medium text-left ${
-                  currentStep.status === "failed" ? "text-amber-300/90" : "text-white"
-                }`}
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  textAlign: "left",
+                  color: currentStep.status === "failed" ? "#fcd34d" : t.fg,
+                }}
               >
                 {currentStep.label}
               </span>

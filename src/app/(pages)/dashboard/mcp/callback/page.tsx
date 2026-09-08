@@ -7,6 +7,7 @@ import { setProjectActivity } from "@/redux/services/auth/auth";
 import { streamVibeProspecting, VibeProspectingStreamEvent } from "@/lib/api/vibeProspectingStream";
 import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal";
 import { toast } from "@/components/snakbar";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 function eventToLine(event: VibeProspectingStreamEvent): MiniTerminalLine | null {
   if (event.type !== "step") return null;
@@ -23,6 +24,7 @@ function eventToLine(event: VibeProspectingStreamEvent): MiniTerminalLine | null
 // and back — the lambda itself matches `state` against what it stored
 // server-side when the connect action ran.
 function McpCallbackInner() {
+  const { t } = useLandingTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
@@ -77,10 +79,10 @@ function McpCallbackInner() {
   }, [accessToken, projectId, searchParams, dispatch, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 pt-20 md:pt-[88px] lg:pt-[104px] text-[#f4f0e8]">
-      <div className="w-full max-w-sm border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-6 text-center">
-        <div className="w-6 h-6 mx-auto mb-4 rounded-full border-2 border-gray-700 border-t-[var(--gold-primary)] animate-spin" />
-        <p className="text-sm font-medium text-white mb-3">Finishing your Vibe Prospecting connection…</p>
+    <div className="min-h-screen flex items-center justify-center p-6 pt-20 md:pt-[88px] lg:pt-[104px]" style={{ color: t.fg }}>
+      <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ border: `1px solid ${t.border}`, background: t.card }}>
+        <div className="w-6 h-6 mx-auto mb-4 rounded-full animate-spin" style={{ border: `2px solid ${t.border}`, borderTopColor: t.gold }} />
+        <p className="text-sm font-medium mb-3" style={{ color: t.fg }}>Finishing your Vibe Prospecting connection…</p>
         <MiniTerminal line={line} idleLabel="Contacting Vibe Prospecting…" />
       </div>
     </div>

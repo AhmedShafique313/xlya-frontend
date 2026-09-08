@@ -1,5 +1,7 @@
 "use client";
 
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
+
 const DownloadIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M12 3v12" />
@@ -28,19 +30,24 @@ interface DownloadButtonsProps {
 // exists for the current job — otherwise both options are visibly disabled,
 // per the "highlighted only once the user actually has rows" requirement.
 export default function DownloadButtons({ downloadUrl, rowCount, variant = "solid" }: DownloadButtonsProps) {
+  const { t } = useLandingTheme();
   const enabled = !!downloadUrl;
   const filename = `vibe-prospecting-export`;
   const xlsxHref = enabled ? `/api/agents/export-xlsx?url=${encodeURIComponent(downloadUrl!)}&filename=${encodeURIComponent(filename)}` : undefined;
 
   const baseBtn = "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors";
-  const enabledBtn =
-    variant === "solid" ? "bg-[var(--gold-primary)] text-black hover:brightness-110" : "bg-black/25 text-[var(--gold-primary)] hover:bg-black/40";
-  const disabledBtn = variant === "solid" ? "bg-[#151515] text-gray-600 cursor-not-allowed" : "bg-black/15 text-gray-600 cursor-not-allowed";
-  const borderColor = enabled ? "border-[var(--gold-primary)]/60" : "border-[#2a2a2a]";
-  const dividerColor = enabled ? (variant === "solid" ? "bg-black/25" : "bg-white/10") : "bg-[#2a2a2a]";
+  const btnStyle: React.CSSProperties = enabled
+    ? variant === "solid"
+      ? { background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }
+      : { background: "rgba(0,0,0,0.25)", color: t.gold }
+    : variant === "solid"
+    ? { background: t.surface, color: t.fgFaint, cursor: "not-allowed" }
+    : { background: "rgba(0,0,0,0.15)", color: t.fgFaint, cursor: "not-allowed" };
+  const borderColor = enabled ? `${t.gold}99` : t.border;
+  const dividerColor = enabled ? (variant === "solid" ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.1)") : t.border;
 
   return (
-    <div className={`inline-flex items-stretch rounded-lg overflow-hidden border ${borderColor}`}>
+    <div className="inline-flex items-stretch rounded-lg overflow-hidden" style={{ border: `1px solid ${borderColor}` }}>
       <a
         href={enabled ? downloadUrl! : undefined}
         target="_blank"
@@ -50,12 +57,13 @@ export default function DownloadButtons({ downloadUrl, rowCount, variant = "soli
           if (!enabled) e.preventDefault();
         }}
         title={enabled ? `Download ${rowCount ?? ""} rows as CSV` : "No export available yet"}
-        className={`${baseBtn} ${enabled ? enabledBtn : disabledBtn}`}
+        className={baseBtn}
+        style={btnStyle}
       >
         <DownloadIcon />
         CSV
       </a>
-      <span className={`w-px ${dividerColor}`} />
+      <span className="w-px" style={{ background: dividerColor }} />
       <a
         href={xlsxHref}
         aria-disabled={!enabled}
@@ -63,7 +71,8 @@ export default function DownloadButtons({ downloadUrl, rowCount, variant = "soli
           if (!enabled) e.preventDefault();
         }}
         title={enabled ? `Download ${rowCount ?? ""} rows as XLSX` : "No export available yet"}
-        className={`${baseBtn} ${enabled ? enabledBtn : disabledBtn}`}
+        className={baseBtn}
+        style={btnStyle}
       >
         <DownloadIcon />
         XLSX

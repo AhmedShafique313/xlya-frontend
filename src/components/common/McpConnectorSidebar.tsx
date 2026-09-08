@@ -14,6 +14,7 @@ import { streamIntegrationsStatus } from "@/lib/api/integrationsStatusStream";
 import { useAppDispatch } from "@/redux/hooks";
 import { setProjectActivity } from "@/redux/services/auth/auth";
 import { toast } from "@/components/snakbar";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 // Maps a vibe-prospecting-oauth lambda step event onto the single-line shape
 // both this sidebar's own MiniTerminal and the dashboard's shared Live
@@ -43,6 +44,7 @@ interface McpConnectorSidebarProps {
 // visually cover the pill regardless of stacking order, and both the panel
 // and its backdrop sit below the navbar's z-50 as a second line of defense.
 export default function McpConnectorSidebar({ isOpen, onClose, projectId, accessToken }: McpConnectorSidebarProps) {
+  const { t } = useLandingTheme();
   const dispatch = useAppDispatch();
   const [status, setStatus] = useState<VibeProspectingConnectionStatus>("disconnected");
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -146,16 +148,21 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
   return createPortal(
     <>
       <div
-        className="fixed top-20 md:top-[88px] lg:top-[104px] inset-x-0 bottom-0 bg-black/50 z-40"
+        className="fixed top-20 md:top-[88px] lg:top-[104px] inset-x-0 bottom-0 z-40"
+        style={{ background: "rgba(0,0,0,0.5)" }}
         onClick={onClose}
       />
-      <div className="fixed top-20 md:top-[88px] lg:top-[104px] right-4 bottom-4 w-[calc(100%-2rem)] sm:w-[380px] lg:w-[420px] xl:w-1/3 bg-[#0f0f0f] border border-[#1c1c1c] rounded-3xl z-[45] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c1c1c] flex-none">
-          <h2 className="text-sm font-semibold text-white">Integrations</h2>
+      <div
+        className="fixed top-20 md:top-[88px] lg:top-[104px] right-4 bottom-4 w-[calc(100%-2rem)] sm:w-[380px] lg:w-[420px] xl:w-1/3 rounded-3xl z-[45] flex flex-col overflow-hidden"
+        style={{ background: t.card, border: `1px solid ${t.border}` }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 flex-none" style={{ borderBottom: `1px solid ${t.border}` }}>
+          <h2 className="text-sm font-semibold" style={{ color: t.fg }}>Integrations</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="w-7 h-7 flex items-center justify-center rounded-md text-[#918C94] hover:text-[var(--gold-primary)] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+            style={{ color: t.fgMid }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -165,26 +172,22 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="border border-[#1c1c1c] bg-[#151515] rounded-2xl p-4">
+          <div className="rounded-2xl p-4" style={{ border: `1px solid ${t.border}`, background: t.surface }}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center flex-none overflow-hidden">
                 <Image src={vibeProspectingLogo} alt="Vibe Prospecting" width={28} height={28} className="object-contain" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-white truncate">Vibe Prospecting</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: t.fg }}>Vibe Prospecting</p>
                   <span
-                    className={`flex-none px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      isConnected
-                        ? "text-[var(--gold-primary)]"
-                        : "text-[#918C94]"
-                    }`}
-                    style={isConnected ? { background: "rgba(204,172,93,0.12)" } : { background: "rgba(145,140,148,0.12)" }}
+                    className="flex-none px-2 py-0.5 rounded-full text-[10px] font-medium"
+                    style={isConnected ? { color: t.gold, background: t.goldDim } : { color: t.fgFaint, background: t.barFaint }}
                   >
                     {isLoadingStatus ? "Checking…" : isConnected ? "Connected" : "Disconnected"}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                <p className="text-xs mt-1 leading-relaxed" style={{ color: t.fgMid }}>
                   B2B company and contact data for prospecting, straight from your Vibe Prospecting account.
                 </p>
               </div>
@@ -199,7 +202,8 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
                 <button
                   onClick={handleDisconnect}
                   disabled={isDisconnecting || isLoadingStatus}
-                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-red-900/40 text-red-400 hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  style={{ border: "1px solid rgba(239,68,68,0.4)", color: "#f87171" }}
                 >
                   {isDisconnecting ? "Disconnecting…" : "Disconnect"}
                 </button>
@@ -207,7 +211,8 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
                 <button
                   onClick={handleConnect}
                   disabled={isConnecting || isLoadingStatus}
-                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[var(--gold-primary)] text-black hover:brightness-110 transition-all disabled:opacity-50"
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
+                  style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
                 >
                   {isConnecting ? "Connecting…" : "Connect"}
                 </button>

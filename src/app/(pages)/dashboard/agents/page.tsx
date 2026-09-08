@@ -15,6 +15,8 @@ import {
   VibeAgentStreamEvent,
   VibeAgentTemplate,
 } from "@/lib/api/vibeProspectingAgentStream";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
+import type { LandingThemeTokens } from "@/components/landingPage/landingTheme";
 
 interface ChatBubble {
   role: "user" | "assistant";
@@ -52,6 +54,7 @@ const SendIcon = () => (
 );
 
 export default function AgentsPage() {
+  const { t } = useLandingTheme();
   const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
   const project = useAppSelector((state) => state.auth.project);
   const projectId = project?.project_id ?? null;
@@ -302,8 +305,10 @@ export default function AgentsPage() {
   const hasConversation = messages.length > 0;
   const newChatDisabledReason = "Vibe Prospecting can only run once per project — switch to a different project to start a new search.";
 
+  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
+
   return (
-    <div className="h-screen flex flex-col pt-20 md:pt-[88px] lg:pt-[104px] p-4 md:p-6 gap-4 text-[#f4f0e8]">
+    <div className="h-screen flex flex-col pt-20 md:pt-[88px] lg:pt-[104px] p-4 md:p-6 gap-4" style={{ color: t.fg }}>
       <div className="flex-1 min-h-0 flex gap-4">
         <AgentsSidebar
           agents={AGENTS}
@@ -319,18 +324,18 @@ export default function AgentsPage() {
           newChatDisabledReason={newChatDisabledReason}
         />
 
-        <section className="flex-1 min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl flex flex-col overflow-hidden">
+        <section className="flex-1 min-w-0 rounded-3xl flex flex-col overflow-hidden" style={cardStyle}>
           {!projectId ? (
             <div className="flex-1 flex items-center justify-center px-6">
-              <p className="text-sm text-gray-500">Select or create a project first to use agents.</p>
+              <p className="text-sm" style={{ color: t.fgMid }}>Select or create a project first to use agents.</p>
             </div>
           ) : !hasConversation ? (
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center px-6">
               <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center overflow-hidden mb-4">
                 <Image src={activeAgent.logo} alt="" width={34} height={34} className="object-contain" />
               </div>
-              <h1 className="text-lg font-semibold text-white mb-1.5">{activeAgent.name}</h1>
-              <p className="text-xs text-gray-500 text-center max-w-md mb-6 leading-relaxed">
+              <h1 className="text-lg font-semibold mb-1.5" style={{ color: t.fg }}>{activeAgent.name}</h1>
+              <p className="text-xs text-center max-w-md mb-6 leading-relaxed" style={{ color: t.fgMid }}>
                 {isLoadingWelcome
                   ? "Loading your project context…"
                   : hasAnyJob
@@ -340,14 +345,15 @@ export default function AgentsPage() {
 
               {templates.length > 0 && !hasAnyJob && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-xl mb-6">
-                  {templates.map((t) => (
+                  {templates.map((tpl) => (
                     <button
-                      key={t.id}
-                      onClick={() => handleRunTemplate(t)}
+                      key={tpl.id}
+                      onClick={() => handleRunTemplate(tpl)}
                       disabled={isSending}
-                      className="text-left px-3.5 py-3 text-xs font-medium text-[#c9c2ae] bg-[#151515] border border-[#1c1c1c] rounded-xl hover:border-[var(--gold-primary)] hover:text-white transition-colors disabled:opacity-50"
+                      className="text-left px-3.5 py-3 text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
+                      style={{ color: t.fgMid, background: t.surface, border: `1px solid ${t.border}` }}
                     >
-                      {t.label}
+                      {tpl.label}
                     </button>
                   ))}
                 </div>
@@ -355,7 +361,7 @@ export default function AgentsPage() {
 
               {!hasAnyJob && (
                 <div className="w-full max-w-xl">
-                  <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending} />
+                  <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending} t={t} />
                   {(isSending || activityLine) && (
                     <div className="mt-2.5">
                       <MiniTerminal line={activityLine} idleLabel="Working…" />
@@ -366,12 +372,12 @@ export default function AgentsPage() {
             </div>
           ) : (
             <>
-              <div className="flex-none flex items-center justify-between px-5 py-3.5 border-b border-[#1c1c1c]">
+              <div className="flex-none flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${t.border}` }}>
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center overflow-hidden flex-none">
                     <Image src={activeAgent.logo} alt="" width={15} height={15} className="object-contain" />
                   </div>
-                  <p className="text-xs font-semibold text-white truncate">{activeAgent.name}</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: t.fg }}>{activeAgent.name}</p>
                 </div>
                 <DownloadButtons downloadUrl={latestDownload?.url} rowCount={latestDownload?.rowCount} />
               </div>
@@ -380,11 +386,12 @@ export default function AgentsPage() {
                 {messages.map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap ${
+                      className="max-w-[80%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap"
+                      style={
                         m.role === "user"
-                          ? "bg-[var(--gold-primary)] text-black"
-                          : "bg-[#161616] border border-[#1c1c1c] text-[#f4f0e8]"
-                      }`}
+                          ? { background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }
+                          : { background: t.surface, border: `1px solid ${t.border}`, color: t.fg }
+                      }
                     >
                       {m.text}
                       {m.downloadUrl && (
@@ -399,9 +406,9 @@ export default function AgentsPage() {
 
               <div className="flex-none px-5 pb-5 pt-1">
                 {jobFinished && (
-                  <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">{newChatDisabledReason}</p>
+                  <p className="text-[11px] mb-2 leading-relaxed" style={{ color: t.fgMid }}>{newChatDisabledReason}</p>
                 )}
-                <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending || jobFinished} />
+                <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending || jobFinished} t={t} />
                 {(isSending || activityLine) && (
                   <div className="mt-2.5">
                     <MiniTerminal line={activityLine} idleLabel="Working…" />
@@ -421,11 +428,15 @@ interface ChatInputProps {
   onChange: (v: string) => void;
   onSend: (text: string) => void;
   disabled: boolean;
+  t: LandingThemeTokens;
 }
 
-function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps) {
+function ChatInput({ value, onChange, onSend, disabled, t }: ChatInputProps) {
   return (
-    <div className="flex items-end gap-2 bg-[#151515] border border-[#2a2a2a] rounded-2xl px-3.5 py-2.5 focus-within:border-[var(--gold-primary)] transition-colors">
+    <div
+      className="flex items-end gap-2 rounded-2xl px-3.5 py-2.5 transition-colors"
+      style={{ background: t.surface, border: `1px solid ${t.border}` }}
+    >
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -437,13 +448,15 @@ function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps) {
         }}
         placeholder="Ask for the leads you're looking for…"
         rows={1}
-        className="flex-1 resize-none bg-transparent text-[13px] text-white placeholder:text-gray-600 focus:outline-none max-h-32"
+        className="flex-1 resize-none bg-transparent text-[13px] focus:outline-none max-h-32"
+        style={{ color: t.fg }}
       />
       <button
         onClick={() => onSend(value)}
         disabled={disabled || !value.trim()}
         aria-label="Send"
-        className="flex-none w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--gold-primary)] text-black hover:brightness-110 transition-all disabled:opacity-40"
+        className="flex-none w-8 h-8 flex items-center justify-center rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
+        style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
       >
         <SendIcon />
       </button>

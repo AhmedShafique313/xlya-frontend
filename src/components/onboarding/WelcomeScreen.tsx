@@ -1,43 +1,87 @@
 "use client";
 
-import GetStartedButton from "@/components/common/GetStartedButton";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 interface WelcomeScreenProps {
   onStart: () => void;
 }
 
 export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+  const { t } = useLandingTheme();
+
   return (
     <div className="flex flex-col items-center justify-center text-center px-6 sm:px-10 lg:px-16 py-7 sm:py-9 animate-fadeIn">
       {/* Badge */}
       <div className="mb-4">
-        <span className="inline-flex items-center gap-2 text-[var(--gold-primary)] text-xs font-semibold tracking-widest uppercase border border-[var(--gold-primary)]/30 bg-[var(--gold-primary)]/10 px-4 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--gold-primary)] animate-pulse" />
-          Quick Setup
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            fontFamily: "var(--font-body)",
+            fontSize: 11,
+            fontWeight: 500,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: t.gold,
+            border: `1px solid ${t.gold}4d`,
+            background: t.goldDim,
+            padding: "6px 16px",
+            borderRadius: 999,
+          }}
+        >
+          <span
+            className="animate-pulse"
+            style={{ width: 6, height: 6, borderRadius: "50%", background: t.gold }}
+          />
+          Quick setup
         </span>
       </div>
 
       {/* Heading */}
-      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight">
+      <h1
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 300,
+          fontSize: "clamp(30px, 5vw, 46px)",
+          lineHeight: 1.12,
+          letterSpacing: "-0.02em",
+          color: t.fg,
+          margin: "0 0 12px",
+        }}
+      >
         Help Xlya personalize
         <br />
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--gold-primary)] to-[var(--gold-light)]">
-          your experience
-        </span>
+        <em style={{ fontStyle: "italic", color: t.gold }}>your experience</em>
       </h1>
 
-      <p className="text-gray-400 text-base sm:text-lg mb-2 font-medium">
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 16, color: t.fgMid, marginBottom: 8, fontWeight: 400 }}>
         in under 60 seconds.
       </p>
-      <p className="text-gray-500 text-sm max-w-sm mb-7 leading-relaxed">
-        Answer a few quick questions so we can build the perfect workspace
-        tailored just for you.
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: t.fgDim, maxWidth: 360, marginBottom: 28, lineHeight: 1.6 }}>
+        Answer a few quick questions so we can build the perfect workspace tailored just for you.
       </p>
 
-      {/* CTA Button */}
-      <GetStartedButton onClick={onStart} className="max-w-xs" />
+      {/* CTA */}
+      <button
+        onClick={onStart}
+        style={{
+          fontFamily: "var(--font-body)",
+          fontSize: 14,
+          fontWeight: 500,
+          color: t.ctaFg,
+          background: t.ctaBg,
+          padding: "13px 32px",
+          borderRadius: 10,
+          border: "none",
+          cursor: "pointer",
+          transition: "opacity 0.25s, transform 0.25s",
+        }}
+      >
+        Get started
+      </button>
 
-      <p className="text-gray-600 text-xs mt-3">
+      <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: t.fgFaint, marginTop: 12 }}>
         You can always update these preferences later in settings
       </p>
     </div>

@@ -5,6 +5,7 @@ import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate"
 import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
 import MiniTerminal from "@/components/common/MiniTerminal";
 import { useAppSelector } from "@/redux/hooks";
+import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -61,12 +62,6 @@ const userBars = [
   { day: "Sat", height: 58, active: false },
 ];
 
-const spendBreakdown = [
-  { label: "Training", value: "$52.4k", color: "var(--gold-primary)" },
-  { label: "Inference", value: "$26.2k", color: "var(--gold-secondary)" },
-  { label: "Storage", value: "$8.7k", color: "#5c4d2c" },
-];
-
 const integrations = [
   { name: "Stripe", type: "Finance", rate: "40%", profit: "$650.00", initial: "S", iconBg: "#635bff" },
   { name: "Zapier", type: "Workflow", rate: "80%", profit: "$720.50", initial: "Z", iconBg: "#ff4f00" },
@@ -75,21 +70,32 @@ const integrations = [
 ];
 
 export default function DashboardPage() {
+  const { t } = useLandingTheme();
   // Real-time steps from the project-list-detail lambda (list your projects,
   // load the selected one's full record) — populated by AppNavbar, which is
   // where project loading/switching actually happens (it's mounted on every
   // dashboard page), and rendered here as the dashboard's live activity feed.
   const projectActivity = useAppSelector((state) => state.auth.projectActivity);
 
+  const goldSecondary = t.isDark ? "#8a7440" : "#a68a3f";
+  const spendBreakdown = [
+    { label: "Training", value: "$52.4k", color: t.gold },
+    { label: "Inference", value: "$26.2k", color: goldSecondary },
+    { label: "Storage", value: "$8.7k", color: t.isDark ? "#5c4d2c" : "#c9b06a" },
+  ];
+
+  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
+  const pillStyle: React.CSSProperties = { border: `1px solid ${t.border}`, color: t.fgMid };
+
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px] text-[#f4f0e8]`}>
-      <div className="w-full max-w-[1440px] min-w-0 border border-[#1c1c1c] bg-[#0f0f0f] rounded-3xl overflow-hidden">
+    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]`} style={{ color: t.fg }}>
+      <div className="w-full max-w-[1440px] min-w-0 rounded-3xl overflow-hidden" style={cardStyle}>
         {/* Main */}
         <main className="min-w-0 px-9 pt-7 pb-12">
           <EmailVerificationGate>
-          <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5 mb-4">
-            <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a] mb-3">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+          <div className="rounded-2xl p-5.5 mb-4" style={cardStyle}>
+            <div className="flex items-center gap-2 text-[13px] font-medium mb-3" style={{ color: t.fgMid }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                 <polyline points="4 17 10 11 4 5" />
                 <line x1="12" y1="19" x2="20" y2="19" />
               </svg>
@@ -101,29 +107,29 @@ export default function DashboardPage() {
           {/* KPI cards */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             {kpis.map((k) => (
-              <div key={k.label} className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-xl p-5">
+              <div key={k.label} className="rounded-xl p-5" style={cardStyle}>
                 <div className="flex items-center justify-between mb-3.5">
-                  <div className="flex items-center gap-2 text-[12.5px] font-medium text-[#9a9a9a]">
-                    <span style={{ color: "var(--gold-primary)" }}>
+                  <div className="flex items-center gap-2 text-[12.5px] font-medium" style={{ color: t.fgMid }}>
+                    <span style={{ color: t.gold }}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         {k.icon}
                       </svg>
                     </span>
                     {k.label}
                   </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4d4d4d" strokeWidth="2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.fgFaint} strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </div>
                 <div className="flex items-baseline gap-2.5">
-                  <div className="text-[26px] font-bold text-[#f4f0e8]">{k.value}</div>
+                  <div className="text-[26px] font-bold" style={{ color: t.fg }}>{k.value}</div>
                   <div
                     className="text-[11.5px] font-semibold rounded-md px-1.5 py-0.5"
                     style={
                       k.positive
-                        ? { color: "var(--gold-primary)", background: "rgba(204,172,93,0.12)" }
+                        ? { color: t.gold, background: t.goldDim }
                         : { color: "#e0806b", background: "rgba(224,128,107,0.12)" }
                     }
                   >
@@ -136,10 +142,10 @@ export default function DashboardPage() {
 
           {/* Charts row */}
           <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "1.65fr 1fr" }}>
-            <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5">
+            <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <path d="M3 3v18h18" />
                     <path d="M18 17V9" />
                     <path d="M13 17V5" />
@@ -148,30 +154,30 @@ export default function DashboardPage() {
                   Generation Volume
                 </div>
                 <div className="flex gap-2">
-                  <div className="border border-[#232323] rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-[#9a9a9a]">
+                  <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
                     Filter
                   </div>
-                  <div className="border border-[#232323] rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-[#9a9a9a]">
+                  <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
                     Sort
                   </div>
                 </div>
               </div>
               <div className="flex items-baseline gap-3 mb-5.5">
-                <div className="text-[28px] font-bold text-[#f4f0e8]">
-                  928,410 <span className="text-[15px] font-medium text-[#6b6b6b]">renders</span>
+                <div className="text-[28px] font-bold" style={{ color: t.fg }}>
+                  928,410 <span className="text-[15px] font-medium" style={{ color: t.fgDim }}>renders</span>
                 </div>
-                <div className="text-xs font-semibold" style={{ color: "var(--gold-primary)" }}>
+                <div className="text-xs font-semibold" style={{ color: t.gold }}>
                   ↗ 15.8%
                 </div>
               </div>
               <svg viewBox="0 0 560 190" width="100%" height="190" style={{ overflow: "visible" }}>
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--gold-primary)" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="var(--gold-primary)" stopOpacity="0" />
+                    <stop offset="0%" stopColor={t.gold} stopOpacity="0.35" />
+                    <stop offset="100%" stopColor={t.gold} stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                <line x1="0" y1="150" x2="560" y2="150" stroke="#1c1c1c" />
+                <line x1="0" y1="150" x2="560" y2="150" stroke={t.border} />
                 <path
                   d="M0,110 L80,95 L160,140 L240,60 L320,130 L400,40 L480,100 L560,20 L560,190 L0,190 Z"
                   fill="url(#areaGrad)"
@@ -179,23 +185,23 @@ export default function DashboardPage() {
                 <path
                   d="M0,110 L80,95 L160,140 L240,60 L320,130 L400,40 L480,100 L560,20"
                   fill="none"
-                  stroke="var(--gold-primary)"
+                  stroke={t.gold}
                   strokeWidth="2.5"
                 />
-                <circle cx="240" cy="60" r="4" fill="#0a0a0a" stroke="var(--gold-primary)" strokeWidth="2" />
-                <circle cx="560" cy="20" r="4" fill="#0a0a0a" stroke="var(--gold-primary)" strokeWidth="2" />
+                <circle cx="240" cy="60" r="4" fill={t.card} stroke={t.gold} strokeWidth="2" />
+                <circle cx="560" cy="20" r="4" fill={t.card} stroke={t.gold} strokeWidth="2" />
               </svg>
-              <div className="flex justify-between mt-2 text-[11.5px] font-medium text-[#6b6b6b]">
+              <div className="flex justify-between mt-2 text-[11.5px] font-medium" style={{ color: t.fgDim }}>
                 <span>Oct</span>
                 <span>Nov</span>
                 <span>Dec</span>
               </div>
             </div>
 
-            <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5">
+            <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
                     <circle cx="9" cy="7" r="4" />
                     <path d="M23 21v-2a4 4 0 00-3-3.87" />
@@ -203,13 +209,13 @@ export default function DashboardPage() {
                   </svg>
                   Active Users
                 </div>
-                <div className="border border-[#232323] rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-[#9a9a9a]">
+                <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
                   Weekly ▾
                 </div>
               </div>
               <div className="flex items-baseline gap-3 mb-5.5">
-                <div className="text-[28px] font-bold text-[#f4f0e8]">31,208</div>
-                <div className="text-xs font-semibold" style={{ color: "var(--gold-primary)" }}>
+                <div className="text-[28px] font-bold" style={{ color: t.fg }}>31,208</div>
+                <div className="text-xs font-semibold" style={{ color: t.gold }}>
                   ↗ 8.3%
                 </div>
               </div>
@@ -217,7 +223,7 @@ export default function DashboardPage() {
                 {userBars.map((b) => (
                   <div key={b.day} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
                     {b.active && (
-                      <div className="text-[11px] font-semibold" style={{ color: "var(--gold-primary)" }}>
+                      <div className="text-[11px] font-semibold" style={{ color: t.gold }}>
                         {b.count}
                       </div>
                     )}
@@ -226,11 +232,11 @@ export default function DashboardPage() {
                       style={{
                         height: `${b.height}px`,
                         background: b.active
-                          ? "linear-gradient(180deg, var(--gold-primary), var(--gold-secondary))"
-                          : "#2a2a2a",
+                          ? `linear-gradient(180deg, ${t.gold}, ${goldSecondary})`
+                          : t.barInactive,
                       }}
                     />
-                    <div className="text-[11px] font-medium text-[#6b6b6b]">{b.day}</div>
+                    <div className="text-[11px] font-medium" style={{ color: t.fgDim }}>{b.day}</div>
                   </div>
                 ))}
               </div>
@@ -239,37 +245,37 @@ export default function DashboardPage() {
 
           {/* Bottom row */}
           <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1.6fr" }}>
-            <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5">
+            <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" />
                     <line x1="3" y1="9" x2="21" y2="9" />
                     <line x1="9" y1="21" x2="9" y2="9" />
                   </svg>
                   Compute Spend
                 </div>
-                <div className="border border-[#232323] rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-[#9a9a9a]">
+                <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
                   Monthly ▾
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 mb-6.5">
                 {spendBreakdown.map((s) => (
                   <div key={s.label} className="border-l-2 pl-2.5" style={{ borderColor: s.color }}>
-                    <div className="text-[11.5px] text-[#6b6b6b] mb-1.5">{s.label}</div>
-                    <div className="text-[15px] font-bold text-[#f4f0e8]">{s.value}</div>
+                    <div className="text-[11.5px] mb-1.5" style={{ color: t.fgDim }}>{s.label}</div>
+                    <div className="text-[15px] font-bold" style={{ color: t.fg }}>{s.value}</div>
                   </div>
                 ))}
               </div>
               <div className="flex justify-center">
                 <svg width="180" height="180" viewBox="0 0 180 180">
-                  <circle cx="90" cy="90" r="70" fill="none" stroke="#1c1c1c" strokeWidth="20" />
+                  <circle cx="90" cy="90" r="70" fill="none" stroke={t.border} strokeWidth="20" />
                   <circle
                     cx="90"
                     cy="90"
                     r="70"
                     fill="none"
-                    stroke="var(--gold-primary)"
+                    stroke={t.gold}
                     strokeWidth="20"
                     strokeDasharray="264 440"
                     strokeDashoffset="0"
@@ -280,7 +286,7 @@ export default function DashboardPage() {
                     cy="90"
                     r="70"
                     fill="none"
-                    stroke="var(--gold-secondary)"
+                    stroke={goldSecondary}
                     strokeWidth="20"
                     strokeDasharray="132 440"
                     strokeDashoffset="-264"
@@ -291,7 +297,7 @@ export default function DashboardPage() {
                     cy="90"
                     r="70"
                     fill="none"
-                    stroke="#5c4d2c"
+                    stroke={t.isDark ? "#5c4d2c" : "#c9b06a"}
                     strokeWidth="20"
                     strokeDasharray="44 440"
                     strokeDashoffset="-396"
@@ -301,10 +307,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="border border-[#1c1c1c] bg-[#0f0f0f] rounded-2xl p-5.5">
+            <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-[#9a9a9a]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold-primary)" strokeWidth="2">
+                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
                     <path d="M17 1l4 4-4 4" />
                     <path d="M3 11V9a4 4 0 014-4h14" />
                     <path d="M7 23l-4-4 4-4" />
@@ -312,13 +318,13 @@ export default function DashboardPage() {
                   </svg>
                   Connected Integrations
                 </div>
-                <a href="#" className="text-xs font-semibold" style={{ color: "var(--gold-primary)" }}>
+                <a href="#" className="text-xs font-semibold" style={{ color: t.gold }}>
                   See All
                 </a>
               </div>
               <div
-                className="grid pb-2.5 border-b border-[#1c1c1c] text-[10.5px] font-semibold tracking-[0.06em] text-[#5c5c5c]"
-                style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr" }}
+                className="grid pb-2.5 text-[10.5px] font-semibold tracking-[0.06em]"
+                style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr", borderBottom: `1px solid ${t.border}`, color: t.fgFaint }}
               >
                 <div>APPLICATION</div>
                 <div>TYPE</div>
@@ -328,29 +334,29 @@ export default function DashboardPage() {
               {integrations.map((row) => (
                 <div
                   key={row.name}
-                  className="grid py-3.5 border-b border-[#161616] items-center"
-                  style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr" }}
+                  className="grid py-3.5 items-center"
+                  style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr", borderBottom: `1px solid ${t.borderSubtle}` }}
                 >
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="w-[26px] h-[26px] flex-none rounded-lg flex items-center justify-center text-xs font-bold text-[#0a0a0a]"
-                      style={{ background: row.iconBg }}
+                      className="w-[26px] h-[26px] flex-none rounded-lg flex items-center justify-center text-xs font-bold"
+                      style={{ background: row.iconBg, color: "#0a0a0a" }}
                     >
                       {row.initial}
                     </div>
-                    <span className="text-[13px] font-medium text-[#f4f0e8]">{row.name}</span>
+                    <span className="text-[13px] font-medium" style={{ color: t.fg }}>{row.name}</span>
                   </div>
-                  <div className="text-[12.5px] text-[#9a9a9a]">{row.type}</div>
+                  <div className="text-[12.5px]" style={{ color: t.fgMid }}>{row.type}</div>
                   <div className="flex items-center gap-2">
-                    <div className="w-[60px] h-1 rounded-full bg-[#1c1c1c]">
+                    <div className="w-[60px] h-1 rounded-full" style={{ background: t.barInactive }}>
                       <div
                         className="h-full rounded-full"
-                        style={{ width: row.rate, background: "var(--gold-primary)" }}
+                        style={{ width: row.rate, background: t.gold }}
                       />
                     </div>
-                    <span className="text-xs font-medium text-[#9a9a9a]">{row.rate}</span>
+                    <span className="text-xs font-medium" style={{ color: t.fgMid }}>{row.rate}</span>
                   </div>
-                  <div className="text-[13px] font-semibold text-[#f4f0e8]">{row.profit}</div>
+                  <div className="text-[13px] font-semibold" style={{ color: t.fg }}>{row.profit}</div>
                 </div>
               ))}
             </div>
