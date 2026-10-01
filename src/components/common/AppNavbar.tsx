@@ -80,8 +80,18 @@ const AgentsIcon = () => (
     </svg>
 );
 
+const AppsIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="8" height="8" rx="2" />
+        <rect x="13" y="3" width="8" height="8" rx="2" />
+        <rect x="3" y="13" width="8" height="8" rx="2" />
+        <rect x="13" y="13" width="8" height="8" rx="2" />
+    </svg>
+);
+
 const appLinks = [
     { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
+    { href: "/dashboard/apps", label: "Apps", icon: AppsIcon },
     { href: "/dashboard/agents", label: "Agents", icon: AgentsIcon },
 ];
 

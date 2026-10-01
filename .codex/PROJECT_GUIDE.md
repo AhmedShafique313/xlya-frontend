@@ -16,6 +16,7 @@ This guide records the repository structure, product flows, backend contracts, a
 - `/onboarding`: anonymous, four-step questionnaire: business type, challenge, team size, and website URL. Answers are stored in session storage and handed to signup.
 - `/auth/signup`, `/auth/login`, `/auth/verify-email`, `/auth/forgot-password`, `/auth/reset-password`: account creation, sign-in, email verification, and password recovery.
 - `/dashboard`: project overview, market analysis, and live activity.
+- `/dashboard/apps`: Apps catalog with a split-view Lead Calculator detail/workspace; supports forward and reverse funnel planning, displays a stage-by-stage funnel graphic and monthly lead plan chart, and calls the deployed lead-calculator Lambda. Scenarios are not persisted.
 - `/dashboard/project`: current project details, description and document management.
 - `/dashboard/agents`: Vibe Prospecting chat and job history.
 - `/dashboard/settings`: profile, onboarding settings, password/account actions, and related preferences.
@@ -29,7 +30,7 @@ This guide records the repository structure, product flows, backend contracts, a
 - `src/app/layout.tsx` loads global CSS and fonts (Fjalla One, Fraunces, DM Sans), mounts `KineticGrid` once, and composes Amplify, theme, Redux, and toast providers.
 - `KineticGrid` is a global fixed canvas. Do not mount it again on individual pages. Opaque landing-page sections intentionally obscure it; on other screens, avoid adding opaque backgrounds to page-level wrappers unless the visual result is intended.
 - Shared UI includes `Button`, `GetStartedButton`, `Logo`, `AppNavbar`, `MiniTerminal`, and onboarding components. Landing page styles and theme are isolated under `components/landingPage`.
-- The landing page has a deliberate light/dark toggle; the rest of the application remains dark themed.
+- The landing page and authenticated dashboard use `LandingThemeProvider` with a deliberate light/dark toggle. App pages should use `useLandingTheme()` tokens for both themes.
 - Navbar create/delete project dialogs use portals because the animated navbar's transform changes fixed-position descendants' containing block.
 
 ## Authentication and state
@@ -74,7 +75,7 @@ Flow: Get Started → `/onboarding` → `/auth/signup` → paced progress UI →
 
 ## AWS API and Lambda conventions
 
-- Frontend API stream clients live in `src/lib/api/`; endpoint URLs are currently hard-coded there. Relevant clients include signup, login, logout, forgot password, email verification, settings, integrations status, project list/detail, create project, project content, Vibe Prospecting, and the agent chat Lambda.
+- Frontend API stream clients live in `src/lib/api/`; endpoint URLs are currently hard-coded there. Relevant clients include signup, login, logout, forgot password, email verification, settings, integrations status, project list/detail, create project, project content, Vibe Prospecting, the agent chat Lambda, and lead-calculator calculations.
 - Most user APIs use API Gateway in `us-east-1`; project content and Vibe Prospecting use Function URLs. These are not interchangeable: verify each route's auth, CORS, payload, and streaming behavior before changing a client.
 - Lambda response bodies use NDJSON: bare JSON objects separated by `\n`, with `step` events and one final `result`. Do not parse as SSE. The final result status is authoritative; some failed steps are warnings/non-fatal.
 - For Function URLs, CORS/OPTIONS behavior differs from API Gateway. Consult `.claude/lambda-logic.md` before implementing or changing Lambda clients/handlers.
@@ -89,12 +90,39 @@ Flow: Get Started → `/onboarding` → `/auth/signup` → paced progress UI →
 - Website-derived knowledge content should be distilled into an on-topic business profile (growth, marketing, strategy, freelance/portfolio context), not copied as raw scraped page text.
 - Function URL uploads have a tighter practical payload ceiling due to base64 expansion. The documented file types are PDF, TXT, DOCX, PPT, PPTX; the documented per-project maximum is five.
 
-## AWS CLI status checked in this session
+## Live Lambda integration check (2026-09-30)
 
-- `aws` was not found in the active shell's PATH or the documented/common Windows install paths checked during this session, so no `aws --version` could be run.
-- Credential-file checks were blocked by access denied; AWS credential environment variables were absent. Credential configuration therefore remains unverified.
-- No AWS CLI configuration was changed and no AWS service calls were made for this check.
-- `.claude/aws-resources.md` describes an earlier machine/resource snapshot. Treat its account IDs, names, and claims of configured credentials as historical notes, not live verification.
+Read-only AWS CLI checks confirmed account `492427341392` in `us-east-1` (the caller identity was the account root user). Thirteen Lambda functions with `xlya` in their names were listed. Ten have API Gateway POST routes, two have Function URLs used by this frontend, and one additional Function URL belongs to the lead calculator.
+
+| Lambda | Frontend connection | Status |
+|---|---|---|
+| `xlya-dev-users-signup-lambda` | `signupStream.ts` → `/auth/signup` | Integrated |
+| `xlya-dev-users-login-lambda` | `loginStream.ts` → `/auth/login` | Integrated |
+| `xlya-dev-users-forgot-password-lambda` | `forgotPasswordStream.ts` → `/auth/forgot-password` | Integrated |
+| `xlya-dev-users-logout-lambda` | `logoutStream.ts` → `AppNavbar` | Integrated |
+| `xlya-dev-users-settings-lambda` | `settingsStream.ts` → settings page/navbar/account actions | Integrated |
+| `xlya-dev-users-email-verification-lambda` | `emailVerificationStream.ts` → verification gate/page | Integrated |
+| `xlya-dev-users-project-list-detail-lambda` | `projectListStream.ts` → `AppNavbar` project selection | Integrated |
+| `xlya-dev-users-create-project-lambda` | `createProjectStream.ts` → `AppNavbar` | Integrated |
+| `xlya-dev-users-integrations-connection-status-lambda` | `integrationsStatusStream.ts` → connector drawer | Integrated |
+| `xlya-dev-users-vibe-prospecting-oauth-lambda` | `vibeProspectingStream.ts` → connector drawer and OAuth callback | Integrated |
+| `xlya-dev-users-project-setting-lambda` | `projectContentStream.ts` → project details/content page | Integrated via Function URL |
+| `xlya-dev-users-vibe-prospecting-lambda` | `vibeProspectingAgentStream.ts` → agents page | Integrated via Function URL |
+| `xlya-dev-users-lead-calculator-lambda` | `leadCalculatorStream.ts` → `/dashboard/apps` Lead Calculator workspace | Integrated; forward/reverse calculation, streamed NDJSON result |
+
+The live API Gateway resource list contained the ten matching POST routes. At the initial lead-calculator audit, its Function URL used `AuthType: NONE` and `RESPONSE_STREAM`, had no Lambda URL CORS configuration, and had a resource policy granting `Principal: *` invocation. On 2026-09-30 CORS was configured for origin `*`, method `POST`, headers `authorization` and `content-type`, with a 600-second preflight cache. Its shared execution role includes `AdministratorAccess`, `AmazonDynamoDBFullAccess`, and `AmazonS3FullAccess`. On 2026-09-30 the code package described below was deployed; the Function URL auth policy and execution role were not changed. The authenticated Function URL was not invoked during the initial AWS inventory check; authenticated forward/reverse requests were exercised on 2026-10-01 (see below). The live `xlya` function list did not include the `xlya-dev-users-dashboard-lambda` described in the older `.claude/aws-resources.md` snapshot, so verify live state before relying on that note.
+
+### Lead calculator (deployed and integrated; local source folder removed by user)
+
+The Node.js 24, dependency-free package was uploaded to `xlya-dev-users-lead-calculator-lambda`; Lambda reported `LastUpdateStatus: Successful`. The handler authenticates Cognito bearer access tokens through Cognito `GetUser`, accepts schema version 1 calculation requests, and returns NDJSON step/result events. It does not accept client-supplied user/project IDs or persist scenarios. The user later removed the local `lambda_lead_calculator/` folder; do not assume its source or deployment archive is available in the repository.
+
+The deployed calculation engine supports forward and reverse funnels; stage-to-stage and optional per-channel conversion rates; fractional expected stage volumes; ceiling-based reverse lead requirements reconciled against integer channel allocation; revenue, cost-per-lead CAC and subscription payback estimates; caller-supplied benchmarks; sensitivity bands; stage-owner labels and duration assumption flags; seasonal monthly lead allocation; simple rep quotas; lead/account equivalents; and a separately reported re-engagement estimate excluded from primary revenue. It does not import or analyze actual leads, persist scenarios, model new-logo and expansion funnels separately, or source industry benchmarks. Review those boundaries before exposing the feature as a complete planning product.
+
+The function still uses its shared `AdministratorAccess` execution role and public Function URL resource policy; those were left unchanged. Despite that broad role, the deployed handler performs no S3 or DynamoDB operations and does not save calculation inputs/results. It does call Cognito `GetUser` to validate the caller's access token. The Function URL CORS configuration allows `*`, POST, and Authorization/Content-Type. A CORS preflight and unauthenticated POST were checked on 2026-09-30; preflight succeeded and the POST returned the handler's NDJSON 401. Duplicate `Access-Control-Allow-Origin` was corrected and redeployed. On 2026-10-01, the supplied verified Xlya account successfully authenticated and made forward/reverse requests: 100 leads at 20% conversion and $1,000 deal value returned 20 expected customers / $20,000 expected revenue; a $10,000 reverse target returned 50 leads / 10 expected customers. Do not record its password or access tokens in project files.
+
+The frontend client is `src/lib/api/leadCalculatorStream.ts`; it submits `{ action: "calculate", schemaVersion: 1, scenario }` to the deployed Function URL with the Cognito access token as a bearer credential and parses the final NDJSON result. The Apps page at `src/app/(pages)/dashboard/apps/page.tsx` contains the catalog/detail split view and calculator. The workspace displays KPI cards, a funnel-stage SVG graphic, and a month-by-month lead allocation chart using values returned by the Lambda. It is responsive and theme-aware through `useLandingTheme()`. Calculation results remain in page memory only. User removed the backend source folder after deployment, so backend changes require recovering/recreating its source package.
+
+The active shell initially lacked visibility into the Windows profile; elevated read-only checks confirmed the AWS CLI works. Previous notes in this section that said the CLI was unavailable are superseded by this check. No AWS service resources were changed during the project audit.
 
 ## Relevant project notes
 
