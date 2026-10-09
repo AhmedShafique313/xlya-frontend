@@ -5,7 +5,6 @@ import Image from "next/image";
 import vibeProspectingLogo from "@/assets/images/vibe-prospecting-logo.png";
 import AgentsSidebar, { AgentDef } from "@/components/agents/AgentsSidebar";
 import DownloadButtons from "@/components/agents/DownloadButtons";
-import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal";
 import { useAppSelector } from "@/redux/hooks";
 import { toast } from "@/components/snakbar";
 import {
@@ -13,17 +12,12 @@ import {
   VibeAgentJobSummary,
   VibeAgentProjectContext,
   VibeAgentStreamEvent,
-  VibeAgentTemplate,
 } from "@/lib/api/vibeProspectingAgentStream";
 import { useLandingTheme } from "@/components/landingPage/landingTheme";
 import type { LandingThemeTokens } from "@/components/landingPage/landingTheme";
-
-interface ChatBubble {
-  role: "user" | "assistant";
-  text: string;
-  downloadUrl?: string;
-  rowCount?: number;
-}
+import { createAgentReplyAccumulator, type AgentChatBubble } from "@/lib/api/vibeAgentReply";
+import { startingAgentProgress, updateVibeAgentProgress, type VibeAgentProgress } from "@/lib/api/vibeAgentProgress";
+import styles from "./agents.module.css";
 
 const AGENTS: AgentDef[] = [
   {
@@ -34,24 +28,40 @@ const AGENTS: AgentDef[] = [
   },
 ];
 
-// Only "step" events feed the activity line — "message" events are skipped
-// on purpose (see vibeProspectingAgentStream.ts's header comment): the
-// lambda sends the same text via "message" and via the final "result"
-// event's `reply` field except on cancel/export, so rendering chat bubbles
-// off "result" alone avoids ever double-adding the same reply.
-function eventToLine(event: VibeAgentStreamEvent): MiniTerminalLine | null {
-  if (event.type !== "step") return null;
-  const status: MiniTerminalLine["status"] =
-    event.status === "completed" ? "done" : event.status === "failed" ? "error" : "active";
-  return { text: event.error ? `${event.label}: ${event.error}` : event.label, status };
-}
-
 const SendIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <line x1="22" y1="2" x2="11" y2="13" />
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 );
+
+function AgentOrbit({ logo }: { logo: AgentDef["logo"] }) {
+  return (
+    <div className={styles.orbit} aria-hidden="true">
+      <span className={styles.orbitRing} />
+      <span className={`${styles.orbitDot} ${styles.orbitDotOne}`} />
+      <span className={`${styles.orbitDot} ${styles.orbitDotTwo}`} />
+      <span className={`${styles.orbitDot} ${styles.orbitDotThree}`} />
+      <span className={styles.orbitLogo}><Image src={logo} alt="" fill sizes="62px" className="object-cover" /></span>
+    </div>
+  );
+}
+
+function AgentThinking({ logo, progress, t }: { logo: AgentDef["logo"]; progress: VibeAgentProgress; t: LandingThemeTokens }) {
+  return (
+    <div className="flex items-start gap-3.5" role="status" aria-live="polite">
+      <span className={styles.thinkingLogo} aria-hidden="true">
+        <span className={styles.thinkingLogoInner}><Image src={logo} alt="" fill sizes="37px" className="object-cover" /></span>
+      </span>
+      <div className="pt-0.5 min-w-0">
+        <p className="text-[11px] font-semibold tracking-[0.12em] uppercase" style={{ color: t.gold }}>Vibe Prospecting</p>
+        <p className={`mt-1 text-sm ${styles.thinkingText}`} style={{ color: t.fg }}>
+          {progress.label}{progress.status === "started" ? "…" : progress.status === "completed" ? " complete" : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function AgentsPage() {
   const { t } = useLandingTheme();
@@ -61,16 +71,16 @@ export default function AgentsPage() {
 
   const [selectedAgentId, setSelectedAgentId] = useState(AGENTS[0].id);
   const [projectContext, setProjectContext] = useState<VibeAgentProjectContext | null>(null);
-  const [templates, setTemplates] = useState<VibeAgentTemplate[]>([]);
   const [isLoadingWelcome, setIsLoadingWelcome] = useState(false);
 
   const [jobs, setJobs] = useState<VibeAgentJobSummary[]>([]);
+  const [jobTitles, setJobTitles] = useState<Record<string, string>>({});
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
 
   const [jobId, setJobId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatBubble[]>([]);
+  const [messages, setMessages] = useState<AgentChatBubble[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [activityLine, setActivityLine] = useState<MiniTerminalLine | null>(null);
+  const [progress, setProgress] = useState<VibeAgentProgress | null>(null);
   const [input, setInput] = useState("");
 
   // A currently-valid presigned download URL for the open job, if any — only
@@ -80,26 +90,16 @@ export default function AgentsPage() {
   // highlighted-vs-idle state.
   const [latestDownload, setLatestDownload] = useState<{ url: string; rowCount?: number } | null>(null);
 
-  // Vibe Prospecting is deliberately single-use per project: once this
-  // project has any REAL job (active or finished), "New chat" and the
-  // template chips are disabled — starting a second, different search here
-  // isn't allowed, the user has to switch to another project instead. This
-  // is a frontend-only restriction; the backend's AGENT_TABLE schema
-  // (project_id HASH / job_id RANGE) would technically allow more.
-  //
-  // "Real" excludes stage-0 jobs on purpose: the lambda's createJob() writes
+  // Hide stage-0 jobs: the lambda's createJob() writes
   // a job row to DynamoDB immediately, before it ever checks whether Vibe
   // Prospecting is even connected for the project — so sending a message
   // before connecting the integration (a real, observed case) leaves behind
   // a permanent empty stub row (stage 0, no messages ever saved) that would
-  // otherwise wrongly lock the project out of ever using the agent. A job
-  // only reaches stage 1+ once it actually completed a real step, so
-  // filtering on that is a reliable "did this job ever do anything" signal
-  // available straight from list_jobs's summary shape, no extra fetch
-  // needed. This is a frontend-only fix — the backend still writes those
-  // stub rows; they're just never surfaced or counted here.
-  const realJobs = jobs.filter((j) => j.stage > 0);
-  const hasAnyJob = realJobs.length > 0;
+  // otherwise appear as empty conversations in history. Sort newest first so
+  // the most recent conversation opens when a project is selected.
+  const realJobs = jobs
+    .filter((j) => j.stage > 0)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   // Once the open job's own status comes back as anything other than
   // "active" (export delivered, or cancelled), the conversation itself is
   // locked too — no more messages can be sent on it.
@@ -127,15 +127,15 @@ export default function AgentsPage() {
   const handleSelectJob = async (id: string) => {
     if (!accessToken || !projectId || isSending) return;
     setIsSending(true);
-    setActivityLine(null);
+    setProgress(null);
     setLatestDownload(null);
     try {
       await streamVibeProspectingAgent(accessToken, { action: "get_job", project_id: projectId, job_id: id }, (event) => {
-        const line = eventToLine(event);
-        if (line) setActivityLine(line);
         if (event.type !== "result") return;
         if (event.statusCode === 200 && event.messages) {
           setJobId(id);
+          const firstRequest = event.messages.find((message) => message.role === "user")?.text;
+          if (firstRequest) setJobTitles((prev) => ({ ...prev, [id]: firstRequest }));
           setJobFinished(event.status !== "active");
           setMessages(
             event.messages.map((m) => ({
@@ -146,7 +146,7 @@ export default function AgentsPage() {
           if (event.s3_key) {
             setMessages((prev) => [
               ...prev,
-              { role: "assistant", text: "This conversation's export link has expired — ask me to run it again for a fresh download." },
+              { role: "assistant", text: "This conversation's export link has expired. Start a new chat to run another search and get a fresh download." },
             ]);
           }
         } else {
@@ -158,21 +158,22 @@ export default function AgentsPage() {
       toast.error("Couldn't load that conversation.");
     } finally {
       setIsSending(false);
-      setActivityLine(null);
     }
   };
 
-  // Loads project context + suggestion templates and the job history fresh
+  // Loads project context and job history fresh
   // any time the active project changes — a different project has an
   // entirely different job history (AGENT_TABLE is keyed by project_id) and
-  // its own ICP/competitors to personalize templates from. If this project
-  // already has a job (single-use-per-project rule above), it's loaded
-  // automatically instead of showing the empty welcome/template screen.
+  // its own ICP/competitors. If this project
+  // already has jobs, the most recent one opens automatically.
   useEffect(() => {
     if (!accessToken || !projectId) return;
     let cancelled = false;
     setJobId(null);
+    setJobTitles({});
     setMessages([]);
+    setProgress(null);
+    setProjectContext(null);
     setLatestDownload(null);
     setJobFinished(false);
     (async () => {
@@ -183,7 +184,6 @@ export default function AgentsPage() {
           if (event.type === "result") {
             if (event.statusCode === 200) {
               setProjectContext(event.project_context ?? null);
-              setTemplates(event.templates ?? []);
             } else {
               toast.error(event.details?.join(" ") || event.error || "Couldn't load the agent.");
             }
@@ -198,8 +198,10 @@ export default function AgentsPage() {
     })();
     (async () => {
       const list = await loadJobs(projectId);
-      const real = list.filter((j) => j.stage > 0);
-      if (!cancelled && real.length > 0) await handleSelectJob(real[0].job_id);
+      const latest = list
+        .filter((j) => j.stage > 0)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+      if (!cancelled && latest) await handleSelectJob(latest.job_id);
     })();
     return () => {
       cancelled = true;
@@ -209,15 +211,21 @@ export default function AgentsPage() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, isSending]);
+  }, [messages, progress, isSending]);
 
   const handleNewChat = () => {
-    if (hasAnyJob) return;
+    if (isSending || isLoadingJobs || !projectId) return;
     setJobId(null);
     setMessages([]);
-    setActivityLine(null);
+    setProgress(null);
     setLatestDownload(null);
     setJobFinished(false);
+    setInput("");
+  };
+
+  const recordStep = (event: VibeAgentStreamEvent) => {
+    if (event.type !== "step") return;
+    setProgress((prev) => updateVibeAgentProgress(prev, event));
   };
 
   const handleSend = async (text: string) => {
@@ -226,20 +234,30 @@ export default function AgentsPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     setIsSending(true);
-    setActivityLine(null);
+    setProgress(startingAgentProgress("Starting your search"));
+    const replyStream = createAgentReplyAccumulator(setMessages);
     try {
       await streamVibeProspectingAgent(
         accessToken,
         { action: "chat", project_id: projectId, job_id: jobId ?? undefined, message: trimmed },
         (event) => {
-          const line = eventToLine(event);
-          if (line) setActivityLine(line);
+          recordStep(event);
+          if (event.type === "message_delta" || event.type === "message") setProgress(null);
+          if (replyStream.onEvent(event)) return;
           if (event.type !== "result") return;
           if (event.statusCode !== 200) {
-            toast.error(event.details?.join(" ") || event.error || "The agent couldn't process that.");
+            const error = event.details?.join(" ") || event.error || "The agent couldn't process that.";
+            setProgress(null);
+            setMessages((prev) => [...prev, { role: "assistant", text: error }]);
+            toast.error(error);
             return;
           }
-          if (event.job_id) setJobId(event.job_id);
+          setProgress(null);
+          const completedJobId = event.job_id;
+          if (completedJobId) {
+            setJobId(completedJobId);
+            setJobTitles((prev) => ({ ...prev, [completedJobId]: prev[completedJobId] ?? trimmed }));
+          }
           if (event.download_url) {
             setMessages((prev) => [
               ...prev,
@@ -248,172 +266,131 @@ export default function AgentsPage() {
             setLatestDownload({ url: event.download_url, rowCount: event.row_count });
             setJobFinished(true);
             toast.success(`Export ready — ${event.row_count ?? 0} rows.`);
-          } else if (event.reply) {
-            setMessages((prev) => [...prev, { role: "assistant", text: event.reply as string }]);
-          }
+          } else replyStream.showFinalReply(event.reply);
           loadJobs(projectId);
         }
       );
     } catch (err) {
       console.error("Vibe Prospecting chat failed:", err);
-      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+      const error = err instanceof Error ? err.message : "Something went wrong.";
+      setProgress(null);
+      setMessages((prev) => [...prev, { role: "assistant", text: error }]);
+      toast.error(error);
     } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleRunTemplate = async (template: VibeAgentTemplate) => {
-    if (!accessToken || !projectId || isSending || hasAnyJob) return;
-    setJobId(null);
-    setMessages([{ role: "user", text: template.prompt }]);
-    setIsSending(true);
-    setActivityLine(null);
-    try {
-      await streamVibeProspectingAgent(
-        accessToken,
-        { action: "run_template", project_id: projectId, template_id: template.id },
-        (event) => {
-          const line = eventToLine(event);
-          if (line) setActivityLine(line);
-          if (event.type !== "result") return;
-          if (event.statusCode !== 200) {
-            toast.error(event.details?.join(" ") || event.error || "That template couldn't be run.");
-            return;
-          }
-          if (event.job_id) setJobId(event.job_id);
-          if (event.download_url) {
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", text: `Exported ${event.row_count ?? 0} rows.`, downloadUrl: event.download_url, rowCount: event.row_count },
-            ]);
-            setLatestDownload({ url: event.download_url, rowCount: event.row_count });
-            setJobFinished(true);
-            toast.success(`Export ready — ${event.row_count ?? 0} rows.`);
-          }
-          loadJobs(projectId);
-        }
-      );
-    } catch (err) {
-      console.error("Vibe Prospecting template run failed:", err);
-      toast.error(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
+      setProgress(null);
       setIsSending(false);
     }
   };
 
   const activeAgent = AGENTS.find((a) => a.id === selectedAgentId) ?? AGENTS[0];
   const hasConversation = messages.length > 0;
-  const newChatDisabledReason = "Vibe Prospecting can only run once per project — switch to a different project to start a new search.";
+  const newChatDisabledReason = isSending || isLoadingJobs ? "Wait for the current request to finish." : "Select a project first.";
 
-  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
+  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.isDark ? "#101012" : t.card };
 
   return (
-    <div className="h-screen flex flex-col pt-20 md:pt-[88px] lg:pt-[104px] p-4 md:p-6 gap-4" style={{ color: t.fg }}>
-      <div className="flex-1 min-h-0 flex gap-4">
+    <div className="h-screen flex flex-col pt-20 md:pt-[88px] lg:pt-[104px] px-3 pb-3 md:px-5 md:pb-5" style={{ color: t.fg }}>
+      <div className="flex-1 min-h-0 flex gap-3 md:gap-4">
         <AgentsSidebar
           agents={AGENTS}
           selectedAgentId={selectedAgentId}
           onSelectAgent={setSelectedAgentId}
           jobs={realJobs}
+          jobTitles={jobTitles}
           isLoadingJobs={isLoadingJobs}
           activeJobId={jobId}
           onSelectJob={handleSelectJob}
           onNewChat={handleNewChat}
-          agentsInUse={hasAnyJob ? [activeAgent.id] : []}
-          newChatDisabled={hasAnyJob}
+          projectName={projectContext?.project_name ?? project?.project_name}
+          newChatDisabled={isSending || isLoadingJobs || !projectId}
           newChatDisabledReason={newChatDisabledReason}
         />
 
-        <section className="flex-1 min-w-0 rounded-3xl flex flex-col overflow-hidden" style={cardStyle}>
+        <section className={`flex-1 min-w-0 rounded-[26px] flex flex-col overflow-hidden ${styles.workspace}`} style={cardStyle}>
+          <div className="flex-none min-h-[70px] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 px-5 py-3 md:px-8" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative w-9 h-9 rounded-xl overflow-hidden flex-none"><Image src={activeAgent.logo} alt="" fill sizes="36px" className="object-cover" /></div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold truncate" style={{ color: t.fg }}>{activeAgent.name}</p>
+                <p className="text-[10px] flex items-center gap-1.5" style={{ color: t.fgMid }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: "#5ad5b0" }} />Ready to discover leads</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {realJobs.length > 0 && (
+                <select
+                  className="md:hidden max-w-24 bg-transparent text-[11px] outline-none"
+                  style={{ color: t.fgMid }}
+                  aria-label="Recent conversations"
+                  value={jobId ?? ""}
+                  onChange={(event) => event.target.value && handleSelectJob(event.target.value)}
+                  disabled={isSending}
+                >
+                  <option value="">Recent chats</option>
+                  {realJobs.map((job) => <option key={job.job_id} value={job.job_id}>{jobTitles[job.job_id]?.slice(0, 28) ?? `Search ${new Date(job.created_at).toLocaleDateString()}`}</option>)}
+                </select>
+              )}
+              {projectContext?.project_name && <span className="hidden sm:block text-[11px] truncate max-w-36" style={{ color: t.fgMid }}>{projectContext.project_name}</span>}
+              {hasConversation && <DownloadButtons downloadUrl={latestDownload?.url} rowCount={latestDownload?.rowCount} />}
+              <button onClick={handleNewChat} disabled={isSending || isLoadingJobs || !projectId} className="md:hidden text-[11px] font-semibold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: t.gold, border: `1px solid ${t.goldDim}` }}>New chat</button>
+            </div>
+          </div>
           {!projectId ? (
             <div className="flex-1 flex items-center justify-center px-6">
               <p className="text-sm" style={{ color: t.fgMid }}>Select or create a project first to use agents.</p>
             </div>
           ) : !hasConversation ? (
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center px-6">
-              <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center overflow-hidden mb-4">
-                <Image src={activeAgent.logo} alt="" width={34} height={34} className="object-contain" />
-              </div>
-              <h1 className="text-lg font-semibold mb-1.5" style={{ color: t.fg }}>{activeAgent.name}</h1>
-              <p className="text-xs text-center max-w-md mb-6 leading-relaxed" style={{ color: t.fgMid }}>
-                {isLoadingWelcome
-                  ? "Loading your project context…"
-                  : hasAnyJob
-                  ? newChatDisabledReason
-                  : `Search, enrich, and export B2B leads matching ${projectContext?.project_name ?? "your project"}'s ICP.`}
-              </p>
-
-              {templates.length > 0 && !hasAnyJob && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-xl mb-6">
-                  {templates.map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      onClick={() => handleRunTemplate(tpl)}
-                      disabled={isSending}
-                      className="text-left px-3.5 py-3 text-xs font-medium rounded-xl transition-colors disabled:opacity-50"
-                      style={{ color: t.fgMid, background: t.surface, border: `1px solid ${t.border}` }}
-                    >
-                      {tpl.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!hasAnyJob && (
-                <div className="w-full max-w-xl">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center px-5 py-8 md:px-8">
+              <div className="flex flex-col items-center w-full max-w-[920px] -mt-3">
+                <AgentOrbit logo={activeAgent.logo} />
+                <p className="mt-2 text-[10px] font-semibold tracking-[0.25em] uppercase" style={{ color: t.gold }}>Your prospecting workspace</p>
+                <h1 className="mt-3 text-center text-[clamp(2.2rem,4vw,4.5rem)] leading-[1.06] tracking-[-0.035em]" style={{ color: t.fg, fontFamily: "var(--font-display), Georgia, serif" }}>
+                  Find your next best <span style={{ color: t.gold }}>customers.</span>
+                </h1>
+                <p className="mt-5 max-w-xl text-center text-[13px] md:text-[15px] leading-relaxed" style={{ color: t.fgMid }}>
+                  {isLoadingWelcome ? "Loading your project context…" : "Describe the companies or people you want to reach. I’ll search, enrich, and prepare your list."}
+                </p>
+                <div className="w-full max-w-[830px] mt-10 md:mt-12">
                   <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending} t={t} />
-                  {(isSending || activityLine) && (
-                    <div className="mt-2.5">
-                      <MiniTerminal line={activityLine} idleLabel="Working…" />
-                    </div>
-                  )}
                 </div>
-              )}
+                <p className="mt-8 text-[10px] font-medium tracking-[0.24em] uppercase" style={{ color: t.fgFaint }}>Search <span className="mx-3" style={{ color: t.gold }}>•</span> Enrich <span className="mx-3" style={{ color: t.gold }}>•</span> Export</p>
+              </div>
             </div>
           ) : (
             <>
-              <div className="flex-none flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${t.border}` }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center overflow-hidden flex-none">
-                    <Image src={activeAgent.logo} alt="" width={15} height={15} className="object-contain" />
-                  </div>
-                  <p className="text-xs font-semibold truncate" style={{ color: t.fg }}>{activeAgent.name}</p>
-                </div>
-                <DownloadButtons downloadUrl={latestDownload?.url} rowCount={latestDownload?.rowCount} />
-              </div>
-
-              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-4">
+              <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-8 md:px-8">
+                <div className="mx-auto max-w-[830px] space-y-7">
                 {messages.map((m, i) => (
-                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className="max-w-[80%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap"
-                      style={
-                        m.role === "user"
-                          ? { background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }
-                          : { background: t.surface, border: `1px solid ${t.border}`, color: t.fg }
-                      }
-                    >
-                      {m.text}
-                      {m.downloadUrl && (
-                        <div className="mt-2.5">
-                          <DownloadButtons downloadUrl={m.downloadUrl} rowCount={m.rowCount} variant="subtle" />
-                        </div>
-                      )}
+                    <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} ${m.role === "assistant" ? "gap-3.5" : ""}`}>
+                      {m.role === "assistant" && <span className="relative w-9 h-9 rounded-xl overflow-hidden flex-none"><Image src={activeAgent.logo} alt="Vibe Prospecting" fill sizes="36px" className="object-cover" /></span>}
+                      <div
+                        aria-live={isSending && !progress && i === messages.length - 1 && m.role === "assistant" ? "polite" : undefined}
+                        className={`max-w-[min(78%,680px)] text-[13px] md:text-[14px] leading-[1.75] whitespace-pre-wrap ${m.role === "user" ? "rounded-2xl rounded-br-md px-4 py-3" : "pt-1"} ${isSending && !progress && i === messages.length - 1 && m.role === "assistant" ? styles.streamCursor : ""}`}
+                        style={
+                          m.role === "user"
+                            ? { background: t.isDark ? "#252322" : t.surface, border: `1px solid ${t.border}`, color: t.fg }
+                            : { color: t.fg }
+                        }
+                      >
+                        {m.text}
+                        {m.downloadUrl && (
+                          <div className="mt-2.5">
+                            <DownloadButtons downloadUrl={m.downloadUrl} rowCount={m.rowCount} variant="subtle" />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
                 ))}
+                {progress && <AgentThinking logo={activeAgent.logo} progress={progress} t={t} />}
+                </div>
               </div>
 
-              <div className="flex-none px-5 pb-5 pt-1">
+              <div className="flex-none px-5 pb-5 pt-2 md:px-8">
+                <div className="mx-auto max-w-[830px]">
                 {jobFinished && (
-                  <p className="text-[11px] mb-2 leading-relaxed" style={{ color: t.fgMid }}>{newChatDisabledReason}</p>
+                  <p className="text-[11px] mb-2 leading-relaxed" style={{ color: t.fgMid }}>This conversation is complete. Select New chat to start another search.</p>
                 )}
                 <ChatInput value={input} onChange={setInput} onSend={handleSend} disabled={isSending || jobFinished} t={t} />
-                {(isSending || activityLine) && (
-                  <div className="mt-2.5">
-                    <MiniTerminal line={activityLine} idleLabel="Working…" />
-                  </div>
-                )}
+                </div>
               </div>
             </>
           )}
@@ -434,32 +411,36 @@ interface ChatInputProps {
 function ChatInput({ value, onChange, onSend, disabled, t }: ChatInputProps) {
   return (
     <div
-      className="flex items-end gap-2 rounded-2xl px-3.5 py-2.5 transition-colors"
-      style={{ background: t.surface, border: `1px solid ${t.border}` }}
+      className="rounded-[22px] p-2.5 md:p-3 transition-[border-color,box-shadow] focus-within:shadow-[0_0_0_3px_rgba(190,165,111,0.08)]"
+      style={{ background: t.isDark ? "#202022" : t.surface, border: `1px solid ${t.isDark ? "rgba(190,165,111,0.35)" : t.border}`, boxShadow: t.isDark ? "0 16px 48px rgba(0,0,0,0.18)" : "0 12px 30px rgba(0,0,0,0.05)" }}
     >
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             onSend(value);
           }
         }}
-        placeholder="Ask for the leads you're looking for…"
-        rows={1}
-        className="flex-1 resize-none bg-transparent text-[13px] focus:outline-none max-h-32"
-        style={{ color: t.fg }}
+        placeholder="Describe the leads you're looking for…"
+        rows={2}
+        className="block w-full min-h-[56px] max-h-36 resize-none bg-transparent px-2 py-1 text-[13px] md:text-[14px] leading-relaxed outline-none disabled:opacity-60"
+        style={{ color: t.fg, caretColor: t.gold }}
       />
-      <button
-        onClick={() => onSend(value)}
-        disabled={disabled || !value.trim()}
-        aria-label="Send"
-        className="flex-none w-8 h-8 flex items-center justify-center rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
-        style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
-      >
-        <SendIcon />
-      </button>
+      <div className="flex items-center justify-between pl-2">
+        <span className="text-[10px]" style={{ color: t.fgFaint }}>Enter to send · Shift + Enter for a new line</span>
+        <button
+          onClick={() => onSend(value)}
+          disabled={disabled || !value.trim()}
+          aria-label="Send message"
+          className="flex-none w-9 h-9 flex items-center justify-center rounded-full hover:brightness-110 transition-all disabled:opacity-40"
+          style={{ background: t.gold, color: t.isDark ? "#0a0a0a" : "#faf8f4" }}
+        >
+          <SendIcon />
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,14 +1,10 @@
 // Vibe Prospecting chat/agent Lambda — a Lambda Function URL (RESPONSE_STREAM,
 // AuthType NONE), not an API Gateway route like the rest of the *Stream.ts
-// clients, but the same NDJSON step/result wire convention plus one extra
-// event shape: {type:"message", role:"assistant", text} for an
-// intermediate assistant reply. The lambda always sends the same reply text
-// via BOTH a "message" event and the final "result" event's `reply` field
-// except on cancel/export (no "message" event there) — this client only
-// reads `reply`/`download_url` off the "result" event to avoid double-adding
-// the same bubble; callers should ignore "message" events unless a live
-// typing indicator is wanted, since it carries no information the result
-// event lacks.
+// clients, but the same NDJSON step/result wire convention. Existing
+// {type:"message", role:"assistant", text} events contain a complete reply.
+// The incremental response contract adds {type:"message_delta",
+// role:"assistant", text} events whose text fields are successive chunks.
+// The final "result" can repeat the complete reply; callers deduplicate it.
 export interface VibeAgentStepEvent {
   type: "step";
   step: string;
@@ -21,6 +17,14 @@ export interface VibeAgentStepEvent {
 
 export interface VibeAgentMessageEvent {
   type: "message";
+  role: "assistant";
+  text: string;
+}
+
+// Incremental assistant text. Each event contains only the next piece, not
+// the full response. The final result can still include the complete reply.
+export interface VibeAgentMessageDeltaEvent {
+  type: "message_delta";
   role: "assistant";
   text: string;
 }
@@ -76,7 +80,7 @@ export interface VibeAgentResultEvent {
   row_count?: number;
 }
 
-export type VibeAgentStreamEvent = VibeAgentStepEvent | VibeAgentMessageEvent | VibeAgentResultEvent;
+export type VibeAgentStreamEvent = VibeAgentStepEvent | VibeAgentMessageEvent | VibeAgentMessageDeltaEvent | VibeAgentResultEvent;
 
 export interface VibeAgentPayload {
   action: "welcome" | "get_job" | "list_jobs" | "chat" | "run_template";
@@ -124,12 +128,15 @@ export async function streamVibeProspectingAgent(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let resultReceived = false;
 
   const handleLine = (line: string) => {
     const trimmed = line.trim();
     if (!trimmed) return;
     try {
-      onEvent(JSON.parse(trimmed));
+      const event = JSON.parse(trimmed) as VibeAgentStreamEvent;
+      if (event.type === "result") resultReceived = true;
+      onEvent(event);
     } catch {
       // malformed line — skip it
     }
@@ -162,4 +169,5 @@ export async function streamVibeProspectingAgent(
   }
 
   if (buffer.trim()) handleLine(buffer);
+  if (!resultReceived) throw new Error("The agent connection closed before completing. Please try again.");
 }

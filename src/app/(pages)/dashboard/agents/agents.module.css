@@ -1,0 +1,120 @@
+.workspace {
+  background: radial-gradient(ellipse 45% 48% at 50% 47%, rgba(190, 165, 111, 0.045), transparent 78%);
+}
+
+.orbit {
+  position: relative;
+  width: 186px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+}
+
+.orbit::before,
+.orbit::after {
+  content: "";
+  position: absolute;
+  inset: 14px 2px;
+  border: 1px solid rgba(190, 165, 111, 0.3);
+  border-radius: 50%;
+  transform: rotate(-24deg);
+}
+
+.orbit::after {
+  inset: 12px 14px;
+  opacity: 0.42;
+  transform: rotate(54deg);
+}
+
+.orbitRing {
+  position: absolute;
+  width: 115px;
+  height: 115px;
+  border: 1px dashed rgba(190, 165, 111, 0.32);
+  border-radius: 50%;
+  animation: orbitTurn 22s linear infinite;
+}
+
+.orbitDot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e6c78a;
+  box-shadow: 0 0 17px 5px rgba(190, 165, 111, 0.3);
+}
+
+.orbitDotOne { top: 14px; left: 32px; }
+.orbitDotTwo { right: 12px; top: 72px; width: 4px; height: 4px; }
+.orbitDotThree { bottom: 22px; left: 62px; width: 4px; height: 4px; }
+
+.orbitLogo {
+  position: relative;
+  z-index: 1;
+  width: 62px;
+  height: 62px;
+  border-radius: 19px;
+  overflow: hidden;
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.35), 0 0 34px rgba(190, 165, 111, 0.11);
+}
+
+.thinkingLogo {
+  position: relative;
+  flex: none;
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+}
+
+.thinkingLogo::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 15px;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(190, 165, 111, 0.15) 90deg, #d7bb7d 195deg, transparent 285deg);
+  animation: orbitTurn 2.2s linear infinite;
+}
+
+.thinkingLogoInner {
+  position: relative;
+  width: 37px;
+  height: 37px;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: logoBreathe 2s ease-in-out infinite;
+}
+
+.thinkingText {
+  background: linear-gradient(90deg, currentColor 5%, #dfc58e 50%, currentColor 95%);
+  background-size: 240% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textShine 2.8s ease-in-out infinite;
+}
+
+.streamCursor::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  background: #bea56f;
+  vertical-align: -0.16em;
+  animation: cursorBlink 0.8s steps(2, start) infinite;
+}
+
+@keyframes orbitTurn { to { transform: rotate(360deg); } }
+@keyframes logoBreathe { 50% { transform: scale(0.93); filter: brightness(1.22); } }
+@keyframes textShine { 0%, 100% { background-position: 100% 50%; } 50% { background-position: 0% 50%; } }
+@keyframes cursorBlink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .orbitRing,
+  .thinkingLogo::before,
+  .thinkingLogoInner,
+  .thinkingText,
+  .streamCursor::after { animation: none; }
+}

@@ -1,0 +1,40 @@
+.flowLine {
+  position: relative;
+  height: 2px;
+  flex: 1;
+  min-width: 30px;
+  background: linear-gradient(90deg, rgba(190,165,111,.2), rgba(190,165,111,.9), rgba(190,165,111,.2));
+  box-shadow: 0 0 18px rgba(190,165,111,.24);
+  overflow: visible;
+}
+
+.flowLine::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e9cd91;
+  box-shadow: 0 0 13px 4px rgba(190,165,111,.5);
+  animation: travel 3.6s ease-in-out infinite;
+}
+
+.flowGlow {
+  background: radial-gradient(ellipse 62% 55% at 50% 48%, rgba(190,165,111,.1), transparent 75%);
+}
+
+.metricGlow {
+  background: radial-gradient(ellipse 90% 60% at 95% 100%, rgba(190,165,111,.12), transparent 75%);
+}
+
+@keyframes travel {
+  0% { left: 0; opacity: 0; }
+  15%, 80% { opacity: 1; }
+  100% { left: calc(100% - 8px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowLine::after { animation: none; left: 50%; }
+}
