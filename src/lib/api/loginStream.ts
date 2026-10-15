@@ -57,6 +57,7 @@ export class LoginApiError extends Error {
 // API Gateway's Lambda-proxy integration hard-kills connections at 29s, so a
 // stall this long usually means that already happened.
 const INACTIVITY_TIMEOUT_MS = 35000;
+const CONNECT_TIMEOUT_MS = 30000;
 
 export async function streamLogin(
   payload: LoginPayload,
@@ -64,12 +65,23 @@ export async function streamLogin(
 ): Promise<void> {
   const controller = new AbortController();
 
-  const response = await fetch(LOGIN_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: controller.signal,
-  });
+  const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(LOGIN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Could not reach the server. Please check your connection and try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(connectTimeoutId);
+  }
 
   if (!response.ok || !response.body) {
     let message = "Login failed";
@@ -85,13 +97,16 @@ export async function streamLogin(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let resultReceived = false;
 
   const handleLine = (line: string) => {
     const trimmed = line.trim();
     if (!trimmed) return;
 
     try {
-      onEvent(JSON.parse(trimmed));
+      const event = JSON.parse(trimmed) as LoginStreamEvent;
+      if (event.type === "result") resultReceived = true;
+      onEvent(event);
     } catch {
       // malformed line — skip it
     }
@@ -124,4 +139,5 @@ export async function streamLogin(
   }
 
   if (buffer.trim()) handleLine(buffer);
+  if (!resultReceived) throw new Error("Login ended before the server confirmed a result. Please try again.");
 }

@@ -1,30 +1,15 @@
 import type { Metadata } from "next";
-import { Fjalla_One, Fraunces, DM_Sans } from "next/font/google";
+import "@fontsource/fjalla-one";
+import "@fontsource-variable/fraunces";
+import "@fontsource-variable/fraunces/wght-italic.css";
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/dm-sans/wght-italic.css";
 import "./globals.css";
 import ThemeProvider from "@/utils/theme-provider";
 import { Providers } from "@/redux/provider";
 import { AmplifyConfigProvider } from "@/components/providers/AmplifyConfigProvider";
 import { ToastProvider } from "@/components/snakbar";
 import KineticGrid from "@/components/common/KineticGrid";
-
-const fjallaOne = Fjalla_One({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-fjalla-one",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-fraunces",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  variable: "--font-dm-sans",
-});
 
 export const metadata: Metadata = {
   title: "Xlya",
@@ -37,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fjallaOne.variable} ${fraunces.variable} ${dmSans.variable}`}>
+    <html lang="en">
       <body className="bg-black min-h-screen">
         <KineticGrid />
         <AmplifyConfigProvider>

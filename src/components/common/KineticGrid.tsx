@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ function lerpColor(
 // floating-X background it replaced) — drop it once near the top of a
 // page's JSX, it never affects document flow.
 export default function KineticGrid({ className }: { className?: string }) {
+  const pathname = usePathname();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const mouseRef = useRef<Point>({ x: -9999, y: -9999 });
@@ -270,7 +272,18 @@ export default function KineticGrid({ className }: { className?: string }) {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || pathname === "/") return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let lastDraw = 0;
+
+    const stop = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    };
+
+    const schedule = () => {
+      if (!rafRef.current && !document.hidden) rafRef.current = requestAnimationFrame(tick);
+    };
 
     const setSize = () => {
       const w = window.innerWidth;
@@ -278,16 +291,22 @@ export default function KineticGrid({ className }: { className?: string }) {
       canvas.width = w;
       canvas.height = h;
       sizeRef.current = { w, h };
+      draw(performance.now());
+      schedule();
     };
 
     setSize();
     window.addEventListener("resize", setSize);
 
     const onMouseMove = (e: MouseEvent) => {
+      if (reducedMotion.matches) return;
+      if (targetMouseRef.current.x === -9999) mouseRef.current = { x: e.clientX, y: e.clientY };
       targetMouseRef.current = { x: e.clientX, y: e.clientY };
+      schedule();
     };
 
     const onClick = (e: MouseEvent) => {
+      if (reducedMotion.matches) return;
       ripplesRef.current.push({
         x: e.clientX,
         y: e.clientY,
@@ -295,36 +314,66 @@ export default function KineticGrid({ className }: { className?: string }) {
         opacity: 1,
         born: performance.now(),
       });
+      schedule();
+    };
+
+    const onMouseLeave = () => {
+      mouseRef.current = { x: -9999, y: -9999 };
+      targetMouseRef.current = { x: -9999, y: -9999 };
+      schedule();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) stop();
+      else { draw(performance.now()); schedule(); }
+    };
+
+    const onMotionChange = () => {
+      if (reducedMotion.matches) {
+        ripplesRef.current = [];
+        onMouseLeave();
+      }
     };
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("click", onClick);
+    document.addEventListener("mouseleave", onMouseLeave);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    reducedMotion.addEventListener("change", onMotionChange);
 
     // A named function declaration (not a useCallback) so it can safely
     // reference itself for the rAF loop without a temporal-dead-zone issue.
     function tick(now: number) {
+      rafRef.current = 0;
+      if (document.hidden) return;
       const m = mouseRef.current;
       const t = targetMouseRef.current;
 
       m.x = lerpN(m.x, t.x, LERP_SPEED);
       m.y = lerpN(m.y, t.y, LERP_SPEED);
 
-      draw(now);
-      rafRef.current = requestAnimationFrame(tick);
+      if (now - lastDraw >= 32) {
+        draw(now);
+        lastDraw = now;
+      }
+      if (Math.abs(m.x - t.x) > 0.5 || Math.abs(m.y - t.y) > 0.5 || ripplesRef.current.length) schedule();
+      else if (lastDraw !== now) draw(now);
     }
-    rafRef.current = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener("resize", setSize);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("click", onClick);
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
+      document.removeEventListener("mouseleave", onMouseLeave);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      reducedMotion.removeEventListener("change", onMotionChange);
+      stop();
     };
-  }, [draw]);
+  }, [draw, pathname]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (pathname === "/") return null;
 
   return (
     <div className={cn("fixed inset-0 -z-10 overflow-hidden pointer-events-none", className)}>

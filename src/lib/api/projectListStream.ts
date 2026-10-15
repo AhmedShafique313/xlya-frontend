@@ -37,6 +37,7 @@ export interface ProjectListResultEvent {
 export type ProjectListStreamEvent = ProjectListStepEvent | ProjectListResultEvent;
 
 const INACTIVITY_TIMEOUT_MS = 35000;
+const CONNECT_TIMEOUT_MS = 30000;
 
 export async function streamProjectList(
   accessToken: string,
@@ -45,15 +46,26 @@ export async function streamProjectList(
 ): Promise<void> {
   const controller = new AbortController();
 
-  const response = await fetch(PROJECT_LIST_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  });
+  const connectTimeoutId = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(PROJECT_LIST_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Could not reach the project service. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(connectTimeoutId);
+  }
 
   if (!response.ok || !response.body) {
     let message = "Request failed";
@@ -69,12 +81,15 @@ export async function streamProjectList(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let resultReceived = false;
 
   const handleLine = (line: string) => {
     const trimmed = line.trim();
     if (!trimmed) return;
     try {
-      onEvent(JSON.parse(trimmed));
+      const event = JSON.parse(trimmed) as ProjectListStreamEvent;
+      if (event.type === "result") resultReceived = true;
+      onEvent(event);
     } catch {
       // malformed line — skip it
     }
@@ -107,4 +122,5 @@ export async function streamProjectList(
   }
 
   if (buffer.trim()) handleLine(buffer);
+  if (!resultReceived) throw new Error("The project service ended before confirming a result. Please try again.");
 }

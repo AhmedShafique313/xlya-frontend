@@ -1,0 +1,9 @@
+# Xclay Lambda
+
+`xlya-dev-users-openclay-lambda` is one stateless, response-streaming Node.js 24 Lambda behind a Function URL. The frontend parses CSV/XLSX files locally and calls the Lambda once per row with `Authorization: Bearer <Cognito access token>`.
+
+Request: `{ action: "enrich", schemaVersion: 1, project_id, row, instruction, outputColumns }`. The Lambda validates the token with Cognito `GetUser`, loads `{ sub, project_id }` from `xlya-dev-projects-table`, searches the web, and streams NVIDIA response content. It emits NDJSON `step` and `message_delta` events, followed by exactly one `result` containing `values` and source links or an error. The browser merges results into the sheet and exports CSV. No rows or results are saved in DynamoDB or S3.
+
+Environment: `NVIDIA_API_KEY`, `NVIDIA_MODEL_ID`, `PROJECTS_TABLE_NAME`, `S3_BUCKET_NAME`. No search key is needed. The Lambda first reads the company's website from the row, extracts page content and social profiles linked from that site, and falls back to Wikimedia's public Wikipedia API when site evidence is weak. A company LinkedIn URL supplied in the sheet can also be included, but is marked as unverified. The model fills requested text columns from source evidence; social columns are filled from extracted links and omitted from the model request. Social-only requests skip the model entirely. Empty output is an error, and partially filled rows are marked for review. This is not general web search, so a company with no reachable website and no Wikipedia coverage may remain incomplete. NVIDIA GPT-OSS has no integrated search tool.
+
+Run `node --test backend/xclay/*.test.mjs` from the repository root. Deploy `index.mjs`, `core.mjs`, `search.mjs`, `website.mjs`, `package.json`, and production `node_modules` in the Lambda zip.

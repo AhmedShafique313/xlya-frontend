@@ -1,17 +1,10 @@
 "use client";
 
-import { Archivo } from "next/font/google";
 import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate";
 import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
 import MiniTerminal from "@/components/common/MiniTerminal";
 import { useAppSelector } from "@/redux/hooks";
 import { useLandingTheme } from "@/components/landingPage/landingTheme";
-
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-archivo",
-});
 
 const kpis = [
   {
@@ -88,10 +81,10 @@ export default function DashboardPage() {
   const pillStyle: React.CSSProperties = { border: `1px solid ${t.border}`, color: t.fgMid };
 
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]`} style={{ color: t.fg }}>
+    <div className="archivo-font min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]" style={{ color: t.fg }}>
       <div className="w-full max-w-[1440px] min-w-0 rounded-3xl overflow-hidden" style={cardStyle}>
         {/* Main */}
-        <main className="min-w-0 px-9 pt-7 pb-12">
+        <main className="min-w-0 px-4 pt-5 pb-8 sm:px-6 lg:px-9 lg:pt-7 lg:pb-12">
           <EmailVerificationGate>
           <div className="rounded-2xl p-5.5 mb-4" style={cardStyle}>
             <div className="flex items-center gap-2 text-[13px] font-medium mb-3" style={{ color: t.fgMid }}>
@@ -105,7 +98,7 @@ export default function DashboardPage() {
           </div>
           <MarketAnalysis />
           {/* KPI cards */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2 lg:grid-cols-3">
             {kpis.map((k) => (
               <div key={k.label} className="rounded-xl p-5" style={cardStyle}>
                 <div className="flex items-center justify-between mb-3.5">
@@ -141,7 +134,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Charts row */}
-          <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "1.65fr 1fr" }}>
+          <div className="grid gap-4 mb-4 lg:grid-cols-[1.65fr_1fr]">
             <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
@@ -244,7 +237,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Bottom row */}
-          <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1.6fr" }}>
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">
             <div className="rounded-2xl p-5.5" style={cardStyle}>
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>

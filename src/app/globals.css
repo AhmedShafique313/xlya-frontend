@@ -9,6 +9,9 @@
   --gold-light: #bea56f;
   --gold-dark: #bea56f;
   --gold-accent: #bea56f;
+  --font-fjalla-one: "Fjalla One";
+  --font-fraunces: "Fraunces Variable";
+  --font-dm-sans: "DM Sans Variable";
 }
 
 :root {
@@ -313,4 +316,8 @@ input:-webkit-autofill:active {
     transform: rotateY(180deg);
   }
 
+}
+
+.archivo-font {
+  font-family: "Archivo Variable", Arial, sans-serif;
 }

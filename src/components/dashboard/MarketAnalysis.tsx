@@ -53,7 +53,7 @@ export default function MarketAnalysis() {
   return (
     <div className="mb-4">
       {lighthouse && (
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 mb-4 lg:grid-cols-4">
           {SCORE_LABELS.map(({ key, label }) => (
             <div key={key} className="rounded-xl p-5" style={{ border: `1px solid ${t.border}`, background: t.card }}>
               <div className="text-[12.5px] font-medium mb-3.5" style={{ color: t.fgMid }}>{label}</div>
@@ -70,7 +70,7 @@ export default function MarketAnalysis() {
       )}
 
       {(hasIcp || hasCompetitors) && (
-        <div className="grid gap-4 items-start" style={{ gridTemplateColumns: hasIcp && hasCompetitors ? "1.3fr 1fr" : "1fr" }}>
+        <div className={`grid gap-4 items-start ${hasIcp && hasCompetitors ? "lg:grid-cols-[1.3fr_1fr]" : ""}`}>
           {hasIcp && icp && (
             <div className="rounded-2xl p-5.5" style={{ border: `1px solid ${t.border}`, background: t.card }}>
               <div className="flex items-center gap-2 text-[13px] font-medium mb-4" style={{ color: t.fgMid }}>

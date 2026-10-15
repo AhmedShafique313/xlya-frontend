@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/backend/xclay/node_modules/
 /.pnp
 .pnp.*
 .yarn/*

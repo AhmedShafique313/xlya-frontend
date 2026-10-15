@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archivo } from "next/font/google";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { streamSettings, SettingsUser } from "@/lib/api/settingsStream";
 import {
@@ -17,14 +16,6 @@ import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal
 import { BUSINESS_TYPE_OPTIONS, CHALLENGE_OPTIONS, TEAM_SIZE_OPTIONS } from "@/constants/onboarding";
 import { toast } from "@/components/snakbar";
 import { useLandingTheme } from "@/components/landingPage/landingTheme";
-
-// Matches the font used on the main dashboard (src/app/(pages)/dashboard/page.tsx)
-// so this page reads as the same product, not a bolted-on settings screen.
-const archivo = Archivo({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-archivo",
-});
 
 const MAX_FILES = 5;
 // Matches the Lambda's ALLOWED_EXTENSIONS exactly — client-side rejection
@@ -54,6 +45,11 @@ function eventToLine(event: ProjectContentStreamEvent): MiniTerminalLine | null 
 }
 
 export default function ProjectDetailsPage() {
+  const projectId = useAppSelector((state) => state.auth.project?.project_id);
+  return <ProjectDetailsWorkspace key={projectId ?? "none"} />;
+}
+
+function ProjectDetailsWorkspace() {
   const { t } = useLandingTheme();
   const project = useAppSelector((state) => state.auth.project);
   const accessToken = useAppSelector((state) => state.auth.tokens.accessToken);
@@ -106,7 +102,7 @@ export default function ProjectDetailsPage() {
   const [description, setDescription] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [files, setFiles] = useState<ProjectDocument[]>([]);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [isLoadingProject, setIsLoadingProject] = useState(Boolean(projectId && accessToken));
   const [isSavingDescription, setIsSavingDescription] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
@@ -122,7 +118,6 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     if (!accessToken || !projectId) return;
     let cancelled = false;
-    setIsLoadingProject(true);
     streamProjectContent(accessToken, { action: "get", project_id: projectId }, (event) => {
       if (cancelled || event.type !== "result") return;
       if (event.statusCode === 200) {
@@ -190,9 +185,9 @@ export default function ProjectDetailsPage() {
         }
       );
       toast[ok ? "success" : "error"](ok ? "Description saved." : errorMsg || "Couldn't save description.");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to save description:", err);
-      toast.error(err?.message || "Couldn't save description.");
+      toast.error(err instanceof Error ? err.message : "Couldn't save description.");
     } finally {
       setIsSavingDescription(false);
     }
@@ -219,9 +214,9 @@ export default function ProjectDetailsPage() {
       } else {
         toast.error(errorMsg || `Couldn't add ${file.name}.`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to upload file:", err);
-      toast.error(err?.message || `Couldn't add ${file.name}.`);
+      toast.error(err instanceof Error ? err.message : `Couldn't add ${file.name}.`);
     } finally {
       setUploadingCount((c) => c - 1);
     }
@@ -291,9 +286,9 @@ export default function ProjectDetailsPage() {
       } else {
         toast.error(errorMsg || `Couldn't remove ${name}.`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to remove file:", err);
-      toast.error(err?.message || `Couldn't remove ${name}.`);
+      toast.error(err instanceof Error ? err.message : `Couldn't remove ${name}.`);
     } finally {
       setDeletingDocId(null);
     }
@@ -322,9 +317,9 @@ export default function ProjectDetailsPage() {
       } else {
         toast.error(errorMsg || "Couldn't delete project.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to delete project:", err);
-      toast.error(err?.message || "Couldn't delete project.");
+      toast.error(err instanceof Error ? err.message : "Couldn't delete project.");
     } finally {
       setIsDeletingProject(false);
       setDeleteConfirmName("");
@@ -349,7 +344,7 @@ export default function ProjectDetailsPage() {
   const inputStyle: React.CSSProperties = { background: t.surface, border: `1px solid ${t.border}`, color: t.fg };
 
   return (
-    <div className={`${archivo.className} min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]`} style={{ color: t.fg }}>
+    <div className="archivo-font min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]" style={{ color: t.fg }}>
       <div className="w-full max-w-[1440px] min-w-0">
         {/* Header — editable project name, locked URL, business profile */}
         <div className="rounded-2xl p-6 md:p-7 mb-6" style={cardStyle}>

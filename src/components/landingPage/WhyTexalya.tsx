@@ -32,7 +32,7 @@ const WhyTexalya = () => {
         {
             icon: <TrendingUp className="w-5 h-5" />,
             number: "01",
-            title: "Lead Calculator App",
+            title: "Xfunnel App",
             description: "Instantly calculate lead value, conversion probability, and ROI. Perfect for sales teams and marketers."
         },
         {
