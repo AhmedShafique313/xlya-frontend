@@ -79,14 +79,6 @@ export interface ProjectSummary {
   updated_at: string | null;
 }
 
-// Single most-recent streamed step from the project-list-detail lambda,
-// shown live in the dashboard's MiniTerminal — same {text,status} shape
-// MiniTerminal already renders elsewhere in the app.
-export interface ProjectActivityLine {
-  text: string;
-  status: "active" | "done" | "error";
-}
-
 interface AuthState {
   user: {
     email: string;
@@ -110,7 +102,6 @@ interface AuthState {
   // project-list-detail lambda every time the dashboard navbar mounts, so
   // this never goes stale across a long session.
   projects: ProjectSummary[];
-  projectActivity: ProjectActivityLine | null;
   isAuthenticated: boolean;
   // Only the access token is persisted — it's the only one anything in this
   // app actually sends. expiresAt (ms epoch, from the token's own `exp`
@@ -153,7 +144,6 @@ const initialState: AuthState = {
   user: null,
   project: null,
   projects: [],
-  projectActivity: null,
   isAuthenticated: false,
   tokens: {
     accessToken: null,
@@ -227,14 +217,10 @@ const authSlice = createSlice({
     setProjects(state, action: PayloadAction<ProjectSummary[]>) {
       state.projects = action.payload;
     },
-    setProjectActivity(state, action: PayloadAction<ProjectActivityLine | null>) {
-      state.projectActivity = action.payload;
-    },
     clearCredentials(state) {
       state.user = null;
       state.project = null;
       state.projects = [];
-      state.projectActivity = null;
       state.tokens = {
         accessToken: null,
         expiresAt: null,
@@ -287,7 +273,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setTokens, setUser, setEmailVerified, setProject, setProjects, setProjectActivity, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
+export const { setCredentials, setTokens, setUser, setEmailVerified, setProject, setProjects, clearCredentials, setLoading, loadFromStorage } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
 /* ---------- RTK Query (Cognito) ---------- */

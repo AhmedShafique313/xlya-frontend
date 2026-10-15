@@ -7,25 +7,15 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Logo from "@/components/common/Logo";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { clearCredentials, setProject, setProjects, setProjectActivity, ProjectSummary, ProjectRecord } from "@/redux/services/auth/auth";
+import { clearCredentials, setProject, setProjects, ProjectSummary, ProjectRecord } from "@/redux/services/auth/auth";
 import { streamLogout } from "@/lib/api/logoutStream";
 import { streamSettings, SettingsUser } from "@/lib/api/settingsStream";
-import { streamProjectList, ProjectListStreamEvent } from "@/lib/api/projectListStream";
-import { streamCreateProject, CreateProjectStreamEvent } from "@/lib/api/createProjectStream";
+import { streamProjectList } from "@/lib/api/projectListStream";
+import { streamCreateProject } from "@/lib/api/createProjectStream";
+import { finishActivity, showActivityStep } from "@/lib/ui/activityToast";
 import McpConnectorSidebar from "@/components/common/McpConnectorSidebar";
 import { toast } from "@/components/snakbar";
 import { useLandingTheme, LandingThemeToggle } from "@/components/landingPage/landingTheme";
-
-// Maps a project-list-detail or create-project lambda step event to the
-// single line the dashboard's live-activity MiniTerminal should show — every
-// step, parent or nested sub-step alike, becomes a line (nothing filtered
-// out), same convention as project/page.tsx's eventToLine.
-function eventToActivityLine(event: ProjectListStreamEvent | CreateProjectStreamEvent) {
-  if (event.type !== "step") return null;
-  const status: "active" | "done" | "error" =
-    event.status === "completed" ? "done" : event.status === "failed" ? "error" : "active";
-  return { text: event.error ? `${event.label}: ${event.error}` : event.label, status };
-}
 
 function isValidWebsiteUrl(value: string) {
   try {
@@ -183,18 +173,13 @@ const AppNavbar = () => {
         };
     }, [accessToken]);
 
-    // Fetches the full record for one project_id via the project-list-detail
-    // lambda's "get" action, streaming its steps into the dashboard's shared
-    // live-activity terminal (state.auth.projectActivity) as they arrive, and
-    // dispatching the fresh ProjectRecord into state.auth.project on success
-    // — every other lambda call in the app (project content, market
-    // analysis) reads project_id from that same Redux field, so this is the
-    // one place a project switch needs to update. `silent` suppresses the
-    // success toast for the automatic mount-time load (only an explicit
-    // click through the dropdown should announce itself).
+    // Fetches one full project record, showing streamed progress in a toast.
+    // Project-scoped pages read the selected record from Redux.
     const switchToProject = async (projectId: string, options?: { silent?: boolean }) => {
         if (!accessToken) return false;
+        const activityId = "project-loading";
         setSwitchingProjectId(projectId);
+        toast.loading("Loading project...", { id: activityId });
         const outcome: { ok: boolean; project: ProjectRecord | null; errorMsg: string } = {
             ok: false,
             project: null,
@@ -202,8 +187,7 @@ const AppNavbar = () => {
         };
         try {
             await streamProjectList(accessToken, { action: "get", project_id: projectId }, (event) => {
-                const line = eventToActivityLine(event);
-                if (line) dispatch(setProjectActivity(line));
+                showActivityStep(event, activityId);
                 if (event.type !== "result") return;
                 outcome.ok = event.statusCode === 200;
                 outcome.project = event.project || null;
@@ -216,10 +200,10 @@ const AppNavbar = () => {
         setSwitchingProjectId(null);
         if (outcome.ok && outcome.project) {
             dispatch(setProject(outcome.project));
-            if (!options?.silent) toast.success(`Switched to "${outcome.project.project_name}".`);
+            finishActivity(activityId, true, options?.silent ? `${outcome.project.project_name} is ready.` : `Switched to "${outcome.project.project_name}".`);
             return true;
         }
-        toast.error(outcome.errorMsg || "Couldn't load that project.");
+        finishActivity(activityId, false, outcome.errorMsg || "Couldn't load that project.");
         return false;
     };
 
@@ -233,22 +217,36 @@ const AppNavbar = () => {
         let cancelled = false;
         (async () => {
             setIsLoadingProjects(true);
+            toast.loading("Loading projects...", { id: "project-loading" });
             let list: ProjectSummary[] = [];
+            let listOk = false;
+            let listError = "";
             try {
                 await streamProjectList(accessToken, { action: "list" }, (event) => {
                     if (cancelled) return;
-                    if (event.type === "result" && event.statusCode === 200 && event.projects) {
-                        list = event.projects;
+                    showActivityStep(event, "project-loading");
+                    if (event.type === "result") {
+                        listOk = event.statusCode === 200 && Array.isArray(event.projects);
+                        if (listOk) list = event.projects || [];
+                        else listError = event.details?.join(" ") || event.error || "Couldn't load projects.";
                     }
                 });
             } catch (err) {
                 console.error("Failed to load projects:", err);
+                listError = err instanceof Error ? err.message : "Couldn't load projects.";
             }
             if (cancelled) return;
-            dispatch(setProjects(list));
             setIsLoadingProjects(false);
+            if (!listOk) {
+                finishActivity("project-loading", false, listError || "Couldn't load projects.");
+                return;
+            }
+            dispatch(setProjects(list));
 
-            if (list.length === 0) return;
+            if (list.length === 0) {
+                finishActivity("project-loading", true, "No projects available yet.");
+                return;
+            }
             const currentId = project?.project_id;
             const activeId = (currentId && list.some((p) => p.project_id === currentId))
                 ? currentId
@@ -269,19 +267,16 @@ const AppNavbar = () => {
 
     // Fires the create-project lambda (website crawl + NVIDIA ICP/competitors
     // + lighthouse scoring + knowledge-base sync, commonly 60-150s+) in the
-    // background. The modal is already closed by the time this runs — every
-    // streamed step (parent or nested sub-step) feeds the same
-    // state.auth.projectActivity the dashboard's Live Activity terminal
-    // reads, and a single toast fires only once the whole thing resolves.
+    // background. One toast updates in place for every streamed step.
     const handleCreateProject = async (websiteUrl: string) => {
         if (!accessToken) return;
+        toast.loading("Creating project...", { id: "project-create" });
         let ok = false;
         let newProject: ProjectRecord | null = null;
         let errorMsg = "";
         try {
             await streamCreateProject(accessToken, websiteUrl, (event) => {
-                const line = eventToActivityLine(event);
-                if (line) dispatch(setProjectActivity(line));
+                showActivityStep(event, "project-create");
                 if (event.type !== "result") return;
                 ok = event.statusCode === 200;
                 newProject = event.project || null;
@@ -294,7 +289,7 @@ const AppNavbar = () => {
 
         if (ok && newProject) {
             dispatch(setProject(newProject));
-            toast.success(`"${(newProject as ProjectRecord).project_name}" created and set as your active project.`);
+            finishActivity("project-create", true, `"${(newProject as ProjectRecord).project_name}" created and set as your active project.`);
             // Refresh the full project list so the switcher reflects the new
             // project and the old default's isDefault:false flip.
             try {
@@ -307,7 +302,7 @@ const AppNavbar = () => {
                 console.error("Failed to refresh project list after create:", err);
             }
         } else {
-            toast.error(errorMsg || "Couldn't create that project.");
+            finishActivity("project-create", false, errorMsg || "Couldn't create that project.");
         }
     };
 

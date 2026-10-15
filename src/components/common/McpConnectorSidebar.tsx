@@ -4,28 +4,14 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import vibeProspectingLogo from "@/assets/images/vibe-prospecting-logo.png";
-import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal";
 import {
   streamVibeProspecting,
   VibeProspectingConnectionStatus,
-  VibeProspectingStreamEvent,
 } from "@/lib/api/vibeProspectingStream";
 import { streamIntegrationsStatus } from "@/lib/api/integrationsStatusStream";
-import { useAppDispatch } from "@/redux/hooks";
-import { setProjectActivity } from "@/redux/services/auth/auth";
 import { toast } from "@/components/snakbar";
+import { finishActivity, showActivityStep } from "@/lib/ui/activityToast";
 import { useLandingTheme } from "@/components/landingPage/landingTheme";
-
-// Maps a vibe-prospecting-oauth lambda step event onto the single-line shape
-// both this sidebar's own MiniTerminal and the dashboard's shared Live
-// Activity MiniTerminal expect — every step becomes a line, matching the
-// eventToActivityLine convention already used in AppNavbar.
-function eventToLine(event: VibeProspectingStreamEvent): MiniTerminalLine | null {
-  if (event.type !== "step") return null;
-  const status: MiniTerminalLine["status"] =
-    event.status === "completed" ? "done" : event.status === "failed" ? "error" : "active";
-  return { text: event.error ? `${event.label}: ${event.error}` : event.label, status };
-}
 
 interface McpConnectorSidebarProps {
   isOpen: boolean;
@@ -45,12 +31,10 @@ interface McpConnectorSidebarProps {
 // and its backdrop sit below the navbar's z-50 as a second line of defense.
 export default function McpConnectorSidebar({ isOpen, onClose, projectId, accessToken }: McpConnectorSidebarProps) {
   const { t } = useLandingTheme();
-  const dispatch = useAppDispatch();
   const [status, setStatus] = useState<VibeProspectingConnectionStatus>("disconnected");
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [line, setLine] = useState<MiniTerminalLine | null>(null);
 
   // Status is read from the shared xlya-dev-users-integrations-connection-
   // status-lambda rather than this connector's own "status" action — that
@@ -84,15 +68,12 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
   const handleConnect = async () => {
     if (!accessToken || !projectId || isConnecting) return;
     setIsConnecting(true);
+    toast.loading("Connecting Vibe Prospecting...", { id: "integration-connect" });
     let authorizeUrl = "";
     let errorMsg = "";
     try {
       await streamVibeProspecting(accessToken, { action: "connect", project_id: projectId }, (event) => {
-        const nextLine = eventToLine(event);
-        if (nextLine) {
-          setLine(nextLine);
-          dispatch(setProjectActivity(nextLine));
-        }
+        showActivityStep(event, "integration-connect");
         if (event.type !== "result") return;
         if (event.statusCode === 200 && event.authorize_url) authorizeUrl = event.authorize_url;
         else errorMsg = event.details?.join(" ") || event.error || "";
@@ -103,27 +84,25 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
     }
 
     if (authorizeUrl) {
+      toast.loading("Opening Vibe Prospecting...", { id: "integration-connect" });
       // Real top-level navigation — this leaves the SPA entirely for
       // Explorium's OAuth consent screen, so it can't be an XHR/fetch call.
       window.location.href = authorizeUrl;
       return;
     }
     setIsConnecting(false);
-    toast.error(errorMsg || "Couldn't start the Vibe Prospecting connection.");
+    finishActivity("integration-connect", false, errorMsg || "Couldn't start the Vibe Prospecting connection.");
   };
 
   const handleDisconnect = async () => {
     if (!accessToken || !projectId || isDisconnecting) return;
     setIsDisconnecting(true);
+    toast.loading("Disconnecting Vibe Prospecting...", { id: "integration-disconnect" });
     let ok = false;
     let errorMsg = "";
     try {
       await streamVibeProspecting(accessToken, { action: "disconnect", project_id: projectId }, (event) => {
-        const nextLine = eventToLine(event);
-        if (nextLine) {
-          setLine(nextLine);
-          dispatch(setProjectActivity(nextLine));
-        }
+        showActivityStep(event, "integration-disconnect");
         if (event.type !== "result") return;
         ok = event.statusCode === 200;
         errorMsg = event.details?.join(" ") || event.error || "";
@@ -135,9 +114,9 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
     setIsDisconnecting(false);
     if (ok) {
       setStatus("disconnected");
-      toast.success("Vibe Prospecting disconnected.");
+      finishActivity("integration-disconnect", true, "Vibe Prospecting disconnected.");
     } else {
-      toast.error(errorMsg || "Couldn't disconnect Vibe Prospecting.");
+      finishActivity("integration-disconnect", false, errorMsg || "Couldn't disconnect Vibe Prospecting.");
     }
   };
 
@@ -191,10 +170,6 @@ export default function McpConnectorSidebar({ isOpen, onClose, projectId, access
                   B2B company and contact data for prospecting, straight from your Vibe Prospecting account.
                 </p>
               </div>
-            </div>
-
-            <div className="mt-3">
-              <MiniTerminal line={line} idleLabel="No recent activity" />
             </div>
 
             <div className="mt-3 flex justify-end">

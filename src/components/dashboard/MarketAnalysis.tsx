@@ -17,11 +17,8 @@ function scoreColor(score: number, t: LandingThemeTokens) {
   return "#e0806b";
 }
 
-// Real, per-project market analysis generated at signup (website scan +
-// NVIDIA-derived ICP/competitors) — only populated when a website URL was
-// given. Everything else on this dashboard is still static placeholder data
-// (see project_dashboard_ui_design memory); this is the first section wired
-// to actual backend output.
+// Real, per-project market analysis generated from the website scan and
+// NVIDIA-derived ICP/competitors. Only populated when website data exists.
 export default function MarketAnalysis() {
   const { t } = useLandingTheme();
   const project = useAppSelector((state) => state.auth.project);

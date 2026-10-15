@@ -1,362 +1,158 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Bot,
+  Calculator,
+  Clock3,
+  ExternalLink,
+  FileText,
+  Globe,
+  ScanSearch,
+  Users,
+} from "lucide-react";
 import EmailVerificationGate from "@/components/dashboard/EmailVerificationGate";
-import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
-import MiniTerminal from "@/components/common/MiniTerminal";
+import { useLandingTheme, type LandingThemeTokens } from "@/components/landingPage/landingTheme";
 import { useAppSelector } from "@/redux/hooks";
-import { useLandingTheme } from "@/components/landingPage/landingTheme";
 
-const kpis = [
-  {
-    label: "Generations",
-    icon: (
-      <>
-        <path d="M12 2v20" />
-        <path d="M2 12h20" />
-      </>
-    ),
-    value: "128,450",
-    delta: "↗ 15.8%",
-    positive: true,
-  },
-  {
-    label: "Total Revenue",
-    icon: (
-      <>
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-      </>
-    ),
-    value: "$84,392",
-    delta: "↗ 24.0%",
-    positive: true,
-  },
-  {
-    label: "Churn Rate",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="10" />
-        <path d="M8 12h8" />
-      </>
-    ),
-    value: "4.2%",
-    delta: "↘ 1.3%",
-    positive: false,
-  },
+type DashboardTab = "overview" | "insights" | "quick-use";
+
+const quickLinks = [
+  { href: "/dashboard/apps/xclay", label: "Xclay", detail: "Lead enrichment", icon: ScanSearch, kind: "App" },
+  { href: "/dashboard/apps", label: "Xfunnel", detail: "Funnel planning", icon: Calculator, kind: "App" },
+  { href: "/dashboard/agents", label: "Vibe Prospecting", detail: "B2B lead search", icon: Bot, kind: "Agent" },
 ];
 
-const userBars = [
-  { day: "Sun", height: 45, active: false },
-  { day: "Mon", height: 62, active: false },
-  { day: "Tue", height: 118, active: true, count: "3,874" },
-  { day: "Wed", height: 36, active: false },
-  { day: "Thu", height: 54, active: false },
-  { day: "Fri", height: 72, active: false },
-  { day: "Sat", height: 58, active: false },
-];
+function websiteHref(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
 
-const integrations = [
-  { name: "Stripe", type: "Finance", rate: "40%", profit: "$650.00", initial: "S", iconBg: "#635bff" },
-  { name: "Zapier", type: "Workflow", rate: "80%", profit: "$720.50", initial: "Z", iconBg: "#ff4f00" },
-  { name: "Shopify", type: "Marketplace", rate: "20%", profit: "$432.25", initial: "S", iconBg: "#95bf47" },
-  { name: "Slack", type: "Comms", rate: "60%", profit: "$310.10", initial: "S", iconBg: "#611f69" },
-];
+function updatedDate(value?: string) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return null;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(timestamp);
+}
+
+function scoreColor(value: number, t: LandingThemeTokens) {
+  if (value >= 90) return t.isDark ? "#78b9a8" : "#2b796c";
+  if (value >= 50) return t.gold;
+  return t.isDark ? "#e08b78" : "#bd5948";
+}
+
+function ScoreCard({ label, shortLabel, value, t }: { label: string; shortLabel: string; value: number; t: LandingThemeTokens }) {
+  const color = scoreColor(value, t);
+  const progress = Math.max(0, Math.min(100, value));
+  return (
+    <div className="flex min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 sm:flex-row sm:justify-start sm:gap-3 sm:px-4 lg:flex-col lg:justify-center xl:flex-row xl:justify-start [@media(max-height:700px)]:gap-1 [@media(max-height:700px)]:py-2" style={{ background: t.card, borderColor: t.border }} title={`${label}: ${value} out of 100`}>
+      <div className="grid h-12 w-12 flex-none place-items-center rounded-full p-[4px] sm:h-14 sm:w-14 lg:h-16 lg:w-16 [@media(max-height:700px)]:h-11 [@media(max-height:700px)]:w-11" style={{ background: `conic-gradient(${color} ${progress}%, ${t.barInactive} 0)` }}>
+        <div className="grid h-full w-full place-items-center rounded-full text-sm font-semibold" style={{ background: t.card, color: t.fg }}>{value}</div>
+      </div>
+      <div className="min-w-0 text-center sm:text-left lg:text-center xl:text-left">
+        <p className="hidden truncate text-xs font-semibold sm:block" style={{ color: t.fg }}>{label}</p>
+        <p className="truncate text-[10px] font-semibold sm:hidden" style={{ color: t.fg }}>{shortLabel}</p>
+        <p className="hidden text-[11px] sm:block" style={{ color: t.fgMid }}>out of 100</p>
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { t } = useLandingTheme();
-  // Real-time steps from the project-list-detail lambda (list your projects,
-  // load the selected one's full record) — populated by AppNavbar, which is
-  // where project loading/switching actually happens (it's mounted on every
-  // dashboard page), and rendered here as the dashboard's live activity feed.
-  const projectActivity = useAppSelector((state) => state.auth.projectActivity);
-
-  const goldSecondary = t.isDark ? "#8a7440" : "#a68a3f";
-  const spendBreakdown = [
-    { label: "Training", value: "$52.4k", color: t.gold },
-    { label: "Inference", value: "$26.2k", color: goldSecondary },
-    { label: "Storage", value: "$8.7k", color: t.isDark ? "#5c4d2c" : "#c9b06a" },
-  ];
-
-  const cardStyle: React.CSSProperties = { border: `1px solid ${t.border}`, background: t.card };
-  const pillStyle: React.CSSProperties = { border: `1px solid ${t.border}`, color: t.fgMid };
+  const project = useAppSelector((state) => state.auth.project);
+  const [tab, setTab] = useState<DashboardTab>("overview");
+  const website = websiteHref(project?.website_url ?? null);
+  const lastUpdated = updatedDate(project?.updated_at);
+  const pagesFetched = project?.website_information?.pages_fetched;
+  const lighthouse = project?.lighthouse_metrics;
+  const icp = project?.icp;
+  const competitors = (project?.competitors || []).filter((item) => item.name.trim().toLowerCase() !== project?.project_name.trim().toLowerCase());
+  const scoreData = lighthouse ? [
+    { label: "SEO", shortLabel: "SEO", value: lighthouse.seo_score },
+    { label: "Performance", shortLabel: "Speed", value: lighthouse.performance_score },
+    { label: "Accessibility", shortLabel: "Access", value: lighthouse.accessibility_score },
+    { label: "Best practices", shortLabel: "Quality", value: lighthouse.best_practices_score },
+  ] : [];
+  const panel = { background: t.card, borderColor: t.border };
 
   return (
-    <div className="archivo-font min-h-screen flex justify-center p-6 md:p-10 pt-20 md:pt-[88px] lg:pt-[104px]" style={{ color: t.fg }}>
-      <div className="w-full max-w-[1440px] min-w-0 rounded-3xl overflow-hidden" style={cardStyle}>
-        {/* Main */}
-        <main className="min-w-0 px-4 pt-5 pb-8 sm:px-6 lg:px-9 lg:pt-7 lg:pb-12">
-          <EmailVerificationGate>
-          <div className="rounded-2xl p-5.5 mb-4" style={cardStyle}>
-            <div className="flex items-center gap-2 text-[13px] font-medium mb-3" style={{ color: t.fgMid }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
-                <polyline points="4 17 10 11 4 5" />
-                <line x1="12" y1="19" x2="20" y2="19" />
-              </svg>
-              Live Activity
-            </div>
-            <MiniTerminal line={projectActivity} idleLabel="Waiting for project activity…" />
-          </div>
-          <MarketAnalysis />
-          {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2 lg:grid-cols-3">
-            {kpis.map((k) => (
-              <div key={k.label} className="rounded-xl p-5" style={cardStyle}>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="flex items-center gap-2 text-[12.5px] font-medium" style={{ color: t.fgMid }}>
-                    <span style={{ color: t.gold }}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        {k.icon}
-                      </svg>
-                    </span>
-                    {k.label}
-                  </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.fgFaint} strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                </div>
-                <div className="flex items-baseline gap-2.5">
-                  <div className="text-[26px] font-bold" style={{ color: t.fg }}>{k.value}</div>
-                  <div
-                    className="text-[11.5px] font-semibold rounded-md px-1.5 py-0.5"
-                    style={
-                      k.positive
-                        ? { color: t.gold, background: t.goldDim }
-                        : { color: "#e0806b", background: "rgba(224,128,107,0.12)" }
-                    }
-                  >
-                    {k.delta}
-                  </div>
-                </div>
+    <div className="archivo-font fixed inset-0 overflow-hidden px-4 pb-4 pt-24 sm:px-6 lg:px-10 lg:pb-7 lg:pt-[104px] [@media(max-height:700px)]:pt-20 [@media(max-height:520px)]:pt-16" style={{ color: t.fg, background: t.isDark ? "transparent" : t.bg }}>
+      <main className="mx-auto h-full min-h-0 w-full max-w-[1320px]">
+        <EmailVerificationGate>
+          <div className="flex h-full min-h-0 flex-col">
+            <header className="flex flex-none items-end justify-between gap-4 pb-4 lg:pb-5 [@media(max-height:700px)]:pb-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase [@media(max-height:520px)]:hidden" style={{ color: t.gold }}>Dashboard / Active project</p>
+                <h1 className="mt-1 truncate text-[23px] font-semibold sm:text-[28px]" title={project?.project_name || "Your workspace"}>{project?.project_name || "Your workspace"}</h1>
               </div>
-            ))}
-          </div>
+              {project && <Link href="/dashboard/project" className="inline-flex h-9 flex-none items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-opacity hover:opacity-70 sm:text-sm" style={{ borderColor: t.border, color: t.gold, background: t.card }}>Project details <ArrowRight size={15} /></Link>}
+            </header>
 
-          {/* Charts row */}
-          <div className="grid gap-4 mb-4 lg:grid-cols-[1.65fr_1fr]">
-            <div className="rounded-2xl p-5.5" style={cardStyle}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
-                    <path d="M3 3v18h18" />
-                    <path d="M18 17V9" />
-                    <path d="M13 17V5" />
-                    <path d="M8 17v-3" />
-                  </svg>
-                  Generation Volume
-                </div>
-                <div className="flex gap-2">
-                  <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
-                    Filter
-                  </div>
-                  <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
-                    Sort
-                  </div>
-                </div>
+            {project ? <>
+              <div className="mb-3 flex flex-none gap-1 rounded-xl p-1 lg:hidden" style={{ background: t.card, border: `1px solid ${t.border}` }} role="tablist" aria-label="Dashboard views">
+                {(["overview", "insights", "quick-use"] as DashboardTab[]).map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} onClick={() => setTab(item)} className="min-w-0 flex-1 rounded-lg px-2 py-2 text-xs font-semibold transition-colors" style={{ color: tab === item ? t.fg : t.fgMid, background: tab === item ? t.goldDim : "transparent" }}>{item === "quick-use" ? "Quick Use" : item === "insights" ? "Insights" : "Overview"}</button>)}
               </div>
-              <div className="flex items-baseline gap-3 mb-5.5">
-                <div className="text-[28px] font-bold" style={{ color: t.fg }}>
-                  928,410 <span className="text-[15px] font-medium" style={{ color: t.fgDim }}>renders</span>
-                </div>
-                <div className="text-xs font-semibold" style={{ color: t.gold }}>
-                  ↗ 15.8%
-                </div>
-              </div>
-              <svg viewBox="0 0 560 190" width="100%" height="190" style={{ overflow: "visible" }}>
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={t.gold} stopOpacity="0.35" />
-                    <stop offset="100%" stopColor={t.gold} stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <line x1="0" y1="150" x2="560" y2="150" stroke={t.border} />
-                <path
-                  d="M0,110 L80,95 L160,140 L240,60 L320,130 L400,40 L480,100 L560,20 L560,190 L0,190 Z"
-                  fill="url(#areaGrad)"
-                />
-                <path
-                  d="M0,110 L80,95 L160,140 L240,60 L320,130 L400,40 L480,100 L560,20"
-                  fill="none"
-                  stroke={t.gold}
-                  strokeWidth="2.5"
-                />
-                <circle cx="240" cy="60" r="4" fill={t.card} stroke={t.gold} strokeWidth="2" />
-                <circle cx="560" cy="20" r="4" fill={t.card} stroke={t.gold} strokeWidth="2" />
-              </svg>
-              <div className="flex justify-between mt-2 text-[11.5px] font-medium" style={{ color: t.fgDim }}>
-                <span>Oct</span>
-                <span>Nov</span>
-                <span>Dec</span>
-              </div>
-            </div>
 
-            <div className="rounded-2xl p-5.5" style={cardStyle}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 00-3-3.87" />
-                    <path d="M16 3.13a4 4 0 010 7.75" />
-                  </svg>
-                  Active Users
-                </div>
-                <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
-                  Weekly ▾
-                </div>
-              </div>
-              <div className="flex items-baseline gap-3 mb-5.5">
-                <div className="text-[28px] font-bold" style={{ color: t.fg }}>31,208</div>
-                <div className="text-xs font-semibold" style={{ color: t.gold }}>
-                  ↗ 8.3%
-                </div>
-              </div>
-              <div className="flex items-end gap-3.5 h-[150px]">
-                {userBars.map((b) => (
-                  <div key={b.day} className="flex flex-col items-center justify-end gap-2 flex-1 h-full">
-                    {b.active && (
-                      <div className="text-[11px] font-semibold" style={{ color: t.gold }}>
-                        {b.count}
+              <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+                <div className="flex min-h-0 min-w-0 flex-col gap-4 [@media(max-height:700px)]:gap-3">
+                  <section className={`${tab === "overview" ? "block" : "hidden"} lg:block`} aria-label="Website health">
+                    <div className="mb-2 flex items-baseline justify-between gap-3"><h2 className="text-sm font-semibold">Website health</h2>{lighthouse?.is_estimate && <span className="text-[11px]" style={{ color: t.fgMid }}>Estimated scores</span>}</div>
+                    {scoreData.length ? <div className="grid grid-cols-4 gap-2 sm:gap-3">{scoreData.map((score) => <ScoreCard key={score.label} {...score} t={t} />)}</div> : <div className="rounded-xl border px-4 py-5 text-xs" style={{ ...panel, color: t.fgMid }}>No website scores available yet.</div>}
+                  </section>
+
+                  <section className={`${tab === "insights" ? "block" : "hidden"} min-h-0 lg:block`} aria-label="Market insights">
+                    <div className="mb-2 flex items-baseline justify-between gap-3"><h2 className="text-sm font-semibold">Market insights</h2><Link href="/dashboard/project" className="inline-flex items-center gap-1 text-[11px] font-semibold hover:underline" style={{ color: t.gold }}>Full analysis <ArrowRight size={12} /></Link></div>
+                    <div className="grid min-h-0 gap-3 sm:grid-cols-2">
+                      <div className="min-w-0 rounded-2xl border p-4 [@media(max-height:700px)]:p-3" style={panel}>
+                        <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: t.goldDim, color: t.gold }}><Users size={16} /></span><h3 className="text-xs font-semibold">Ideal customer</h3></div>
+                        {icp ? <>
+                          <p className="mt-3 line-clamp-3 text-xs leading-relaxed [@media(max-height:520px)]:line-clamp-2" style={{ color: t.fgMid }}>{icp.target_audience || "Audience description is not available."}</p>
+                          {(icp.demographics?.company_size || icp.demographics?.role_titles?.length) && <div className="mt-3 flex flex-wrap gap-1.5 [@media(max-height:520px)]:hidden">
+                            {icp.demographics?.company_size && <span className="max-w-full truncate rounded-md px-2 py-1 text-[10px]" style={{ background: t.goldDim, color: t.gold }}>{icp.demographics.company_size}</span>}
+                            {icp.demographics?.role_titles?.slice(0, 2).map((role) => <span key={role} className="max-w-full truncate rounded-md border px-2 py-1 text-[10px]" style={{ borderColor: t.border, color: t.fgMid }}>{role}</span>)}
+                          </div>}
+                        </> : <p className="mt-3 text-xs" style={{ color: t.fgMid }}>No ideal customer profile yet.</p>}
                       </div>
-                    )}
-                    <div
-                      className="w-full rounded-t"
-                      style={{
-                        height: `${b.height}px`,
-                        background: b.active
-                          ? `linear-gradient(180deg, ${t.gold}, ${goldSecondary})`
-                          : t.barInactive,
-                      }}
-                    />
-                    <div className="text-[11px] font-medium" style={{ color: t.fgDim }}>{b.day}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* Bottom row */}
-          <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">
-            <div className="rounded-2xl p-5.5" style={cardStyle}>
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" />
-                    <line x1="3" y1="9" x2="21" y2="9" />
-                    <line x1="9" y1="21" x2="9" y2="9" />
-                  </svg>
-                  Compute Spend
+                      <div className="min-w-0 rounded-2xl border p-4 [@media(max-height:700px)]:p-3" style={panel}>
+                        <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: t.goldDim, color: t.gold }}><ScanSearch size={16} /></span><h3 className="text-xs font-semibold">Likely competitors</h3></div>
+                        {competitors.length ? <div className="mt-3 space-y-2">
+                          {competitors.slice(0, 3).map((item, index) => <div key={item.name} className={`flex min-w-0 items-center gap-2 ${index > 1 ? "[@media(max-height:520px)]:hidden" : ""}`} title={item.reason}><span className="grid h-7 w-7 flex-none place-items-center rounded-lg text-[11px] font-semibold" style={{ background: t.goldDim, color: t.gold }}>{item.name.charAt(0).toUpperCase()}</span><span className="min-w-0"><span className="block truncate text-xs font-medium">{item.name}</span><span className="block truncate text-[10px] [@media(max-height:520px)]:hidden" style={{ color: t.fgMid }}>{item.reason}</span></span></div>)}
+                          {competitors.length > 3 && <p className="text-[10px] [@media(max-height:700px)]:hidden" style={{ color: t.fgMid }}>+{competitors.length - 3} more in project details</p>}
+                        </div> : <p className="mt-3 text-xs" style={{ color: t.fgMid }}>No competitor analysis yet.</p>}
+                      </div>
+                    </div>
+                  </section>
                 </div>
-                <div className="rounded-lg px-3 py-1.5 text-[11.5px] font-medium" style={pillStyle}>
-                  Monthly ▾
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 mb-6.5">
-                {spendBreakdown.map((s) => (
-                  <div key={s.label} className="border-l-2 pl-2.5" style={{ borderColor: s.color }}>
-                    <div className="text-[11.5px] mb-1.5" style={{ color: t.fgDim }}>{s.label}</div>
-                    <div className="text-[15px] font-bold" style={{ color: t.fg }}>{s.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-center">
-                <svg width="180" height="180" viewBox="0 0 180 180">
-                  <circle cx="90" cy="90" r="70" fill="none" stroke={t.border} strokeWidth="20" />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke={t.gold}
-                    strokeWidth="20"
-                    strokeDasharray="264 440"
-                    strokeDashoffset="0"
-                    transform="rotate(-90 90 90)"
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke={goldSecondary}
-                    strokeWidth="20"
-                    strokeDasharray="132 440"
-                    strokeDashoffset="-264"
-                    transform="rotate(-90 90 90)"
-                  />
-                  <circle
-                    cx="90"
-                    cy="90"
-                    r="70"
-                    fill="none"
-                    stroke={t.isDark ? "#5c4d2c" : "#c9b06a"}
-                    strokeWidth="20"
-                    strokeDasharray="44 440"
-                    strokeDashoffset="-396"
-                    transform="rotate(-90 90 90)"
-                  />
-                </svg>
-              </div>
-            </div>
 
-            <div className="rounded-2xl p-5.5" style={cardStyle}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-[13px] font-medium" style={{ color: t.fgMid }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={t.gold} strokeWidth="2">
-                    <path d="M17 1l4 4-4 4" />
-                    <path d="M3 11V9a4 4 0 014-4h14" />
-                    <path d="M7 23l-4-4 4-4" />
-                    <path d="M21 13v2a4 4 0 01-4 4H3" />
-                  </svg>
-                  Connected Integrations
-                </div>
-                <a href="#" className="text-xs font-semibold" style={{ color: t.gold }}>
-                  See All
-                </a>
+                <aside className="flex min-h-0 min-w-0 flex-col gap-4 [@media(max-height:700px)]:gap-3">
+                  <section className={`${tab === "overview" ? "block" : "hidden"} rounded-2xl border p-4 lg:block [@media(max-height:700px)]:p-3`} style={panel} aria-label="Project scan">
+                    <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: t.goldDim, color: t.gold }}><Globe size={16} /></span><h2 className="text-xs font-semibold">Project scan</h2></div>
+                    <div className="mt-3 flex items-end justify-between gap-3 border-b pb-3" style={{ borderColor: t.border }}><div><p className="text-[11px]" style={{ color: t.fgMid }}>Pages scanned</p><p className="mt-1 text-2xl font-semibold leading-none">{typeof pagesFetched === "number" ? pagesFetched : "-"}</p></div><FileText size={26} style={{ color: t.gold }} /></div>
+                    <div className="mt-3 flex min-w-0 items-center gap-2 text-[11px]" style={{ color: t.fgMid }}><ExternalLink size={12} className="flex-none" />{website ? <a href={website} target="_blank" rel="noopener noreferrer" className="truncate hover:underline" title={project.website_url || undefined}>{project.website_url}</a> : <span className="truncate">{project.website_url || "No website added"}</span>}</div>
+                    {lastUpdated && <p className="mt-2 flex items-center gap-1 text-[10px] [@media(max-height:520px)]:hidden" style={{ color: t.fgMid }}><Clock3 size={11} /> Updated {lastUpdated}</p>}
+                  </section>
+
+                  <section className={`${tab === "quick-use" ? "block" : "hidden"} rounded-2xl border p-4 lg:block [@media(max-height:700px)]:p-3`} style={panel} aria-label="Quick Use">
+                    <div className="flex items-baseline justify-between gap-2"><h2 className="text-sm font-semibold">Quick Use</h2><span className="text-[11px]" style={{ color: t.fgMid }}>Apps & agents</span></div>
+                    <nav className="mt-2 divide-y" style={{ borderColor: t.border }} aria-label="Quick Use links">
+                      {quickLinks.map(({ href, label, detail, icon: Icon, kind }) => <Link key={href} href={href} className="group flex min-h-[59px] items-center gap-3 py-2 transition-opacity hover:opacity-70" style={{ borderColor: t.border }}><span className="grid h-9 w-9 flex-none place-items-center rounded-lg" style={{ background: t.goldDim, color: t.gold }}><Icon size={18} /></span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{label}</span><span className="block truncate text-[11px]" style={{ color: t.fgMid }}>{kind} · {detail}</span></span><ArrowRight size={15} className="flex-none transition-transform group-hover:translate-x-1" style={{ color: t.fgMid }} /></Link>)}
+                    </nav>
+                  </section>
+                </aside>
               </div>
-              <div
-                className="grid pb-2.5 text-[10.5px] font-semibold tracking-[0.06em]"
-                style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr", borderBottom: `1px solid ${t.border}`, color: t.fgFaint }}
-              >
-                <div>APPLICATION</div>
-                <div>TYPE</div>
-                <div>RATE</div>
-                <div>PROFIT</div>
-              </div>
-              {integrations.map((row) => (
-                <div
-                  key={row.name}
-                  className="grid py-3.5 items-center"
-                  style={{ gridTemplateColumns: "2fr 1fr 1.2fr 1fr", borderBottom: `1px solid ${t.borderSubtle}` }}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="w-[26px] h-[26px] flex-none rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{ background: row.iconBg, color: "#0a0a0a" }}
-                    >
-                      {row.initial}
-                    </div>
-                    <span className="text-[13px] font-medium" style={{ color: t.fg }}>{row.name}</span>
-                  </div>
-                  <div className="text-[12.5px]" style={{ color: t.fgMid }}>{row.type}</div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-[60px] h-1 rounded-full" style={{ background: t.barInactive }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: row.rate, background: t.gold }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium" style={{ color: t.fgMid }}>{row.rate}</span>
-                  </div>
-                  <div className="text-[13px] font-semibold" style={{ color: t.fg }}>{row.profit}</div>
-                </div>
-              ))}
-            </div>
+            </> : <div className="flex min-h-0 flex-1 items-center justify-center text-center"><div><p className="text-base font-medium">No project selected</p><p className="mt-2 text-sm" style={{ color: t.fgMid }}>Select a project from the navigation to see its overview.</p></div></div>}
           </div>
-          </EmailVerificationGate>
-        </main>
-      </div>
+        </EmailVerificationGate>
+      </main>
     </div>
   );
 }

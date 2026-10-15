@@ -8,11 +8,10 @@ import {
   streamProjectContent,
   streamAddFile,
   ProjectDocument,
-  ProjectContentStreamEvent,
 } from "@/lib/api/projectContentStream";
 import { setProject } from "@/redux/services/auth/auth";
 import MarketAnalysis from "@/components/dashboard/MarketAnalysis";
-import MiniTerminal, { MiniTerminalLine } from "@/components/common/MiniTerminal";
+import { finishActivity, showActivityStep } from "@/lib/ui/activityToast";
 import { BUSINESS_TYPE_OPTIONS, CHALLENGE_OPTIONS, TEAM_SIZE_OPTIONS } from "@/constants/onboarding";
 import { toast } from "@/components/snakbar";
 import { useLandingTheme } from "@/components/landingPage/landingTheme";
@@ -33,16 +32,6 @@ const FILE_ICON_STYLE: Record<string, { bg: string; label: string }> = {
   docx: { bg: "#6b9ae0", label: "DOC" },
 };
 const FALLBACK_FILE_ICON = { bg: "#6b6b6b", label: "FILE" };
-
-// Maps an NDJSON step event to the single line its card's MiniTerminal
-// should show — non-step events (the terminal "result") don't get a line of
-// their own, the step stream already tells the visual story.
-function eventToLine(event: ProjectContentStreamEvent): MiniTerminalLine | null {
-  if (event.type !== "step") return null;
-  const status: MiniTerminalLine["status"] =
-    event.status === "completed" ? "done" : event.status === "failed" ? "error" : "active";
-  return { text: event.error ? `${event.label}: ${event.error}` : event.label, status };
-}
 
 export default function ProjectDetailsPage() {
   const projectId = useAppSelector((state) => state.auth.project?.project_id);
@@ -109,12 +98,6 @@ function ProjectDetailsWorkspace() {
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const isDescriptionDirty = descriptionDraft.trim() !== description.trim();
 
-  // Each card owns its own single-line terminal, fed only by the actions
-  // that card triggers — not a shared cross-card history.
-  const [descriptionLine, setDescriptionLine] = useState<MiniTerminalLine | null>(null);
-  const [filesLine, setFilesLine] = useState<MiniTerminalLine | null>(null);
-  const [deleteLine, setDeleteLine] = useState<MiniTerminalLine | null>(null);
-
   useEffect(() => {
     if (!accessToken || !projectId) return;
     let cancelled = false;
@@ -166,6 +149,7 @@ function ProjectDetailsWorkspace() {
       return;
     }
     setIsSavingDescription(true);
+    toast.loading("Saving description...", { id: "project-description" });
     let ok = false;
     let errorMsg = "";
     try {
@@ -173,7 +157,7 @@ function ProjectDetailsWorkspace() {
         accessToken,
         { action: "add_description", project_id: projectId, description: trimmed },
         (event) => {
-          setDescriptionLine((prev) => eventToLine(event) ?? prev);
+          showActivityStep(event, "project-description");
           if (event.type !== "result") return;
           ok = event.statusCode === 200;
           errorMsg = event.details?.join(" ") || event.error || "";
@@ -184,10 +168,10 @@ function ProjectDetailsWorkspace() {
           }
         }
       );
-      toast[ok ? "success" : "error"](ok ? "Description saved." : errorMsg || "Couldn't save description.");
+      finishActivity("project-description", ok, ok ? "Description saved." : errorMsg || "Couldn't save description.");
     } catch (err: unknown) {
       console.error("Failed to save description:", err);
-      toast.error(err instanceof Error ? err.message : "Couldn't save description.");
+      finishActivity("project-description", false, err instanceof Error ? err.message : "Couldn't save description.");
     } finally {
       setIsSavingDescription(false);
     }
@@ -196,12 +180,14 @@ function ProjectDetailsWorkspace() {
   const uploadOneFile = async (file: File) => {
     if (!accessToken || !projectId) return;
     setUploadingCount((c) => c + 1);
+    const activityId = `project-file-upload-${file.name}`;
+    toast.loading(`Uploading ${file.name}...`, { id: activityId });
     let ok = false;
     let errorMsg = "";
     let newDoc: ProjectDocument | undefined;
     try {
       await streamAddFile(accessToken, projectId, file, (event) => {
-        setFilesLine((prev) => eventToLine(event) ?? prev);
+        showActivityStep(event, activityId);
         if (event.type !== "result") return;
         ok = event.statusCode === 200;
         errorMsg = event.details?.join(" ") || event.error || "";
@@ -210,13 +196,13 @@ function ProjectDetailsWorkspace() {
       });
       if (ok && newDoc) {
         setFiles((prev) => [...prev, newDoc as ProjectDocument]);
-        toast.success(`${file.name} added.`);
+        finishActivity(activityId, true, `${file.name} added.`);
       } else {
-        toast.error(errorMsg || `Couldn't add ${file.name}.`);
+        finishActivity(activityId, false, errorMsg || `Couldn't add ${file.name}.`);
       }
     } catch (err: unknown) {
       console.error("Failed to upload file:", err);
-      toast.error(err instanceof Error ? err.message : `Couldn't add ${file.name}.`);
+      finishActivity(activityId, false, err instanceof Error ? err.message : `Couldn't add ${file.name}.`);
     } finally {
       setUploadingCount((c) => c - 1);
     }
@@ -266,6 +252,8 @@ function ProjectDetailsWorkspace() {
       return;
     }
     setDeletingDocId(documentId);
+    const activityId = `project-file-delete-${documentId}`;
+    toast.loading(`Removing ${name}...`, { id: activityId });
     let ok = false;
     let errorMsg = "";
     try {
@@ -273,7 +261,7 @@ function ProjectDetailsWorkspace() {
         accessToken,
         { action: "delete_document", project_id: projectId, document_id: documentId },
         (event) => {
-          setFilesLine((prev) => eventToLine(event) ?? prev);
+          showActivityStep(event, activityId);
           if (event.type !== "result") return;
           ok = event.statusCode === 200;
           errorMsg = event.details?.join(" ") || event.error || "";
@@ -282,13 +270,13 @@ function ProjectDetailsWorkspace() {
       );
       if (ok) {
         setFiles((prev) => prev.filter((f) => f.document_id !== documentId));
-        toast.success(`${name} removed.`);
+        finishActivity(activityId, true, `${name} removed.`);
       } else {
-        toast.error(errorMsg || `Couldn't remove ${name}.`);
+        finishActivity(activityId, false, errorMsg || `Couldn't remove ${name}.`);
       }
     } catch (err: unknown) {
       console.error("Failed to remove file:", err);
-      toast.error(err instanceof Error ? err.message : `Couldn't remove ${name}.`);
+      finishActivity(activityId, false, err instanceof Error ? err.message : `Couldn't remove ${name}.`);
     } finally {
       setDeletingDocId(null);
     }
@@ -301,25 +289,26 @@ function ProjectDetailsWorkspace() {
     }
     setIsDeleteModalOpen(false);
     setIsDeletingProject(true);
+    toast.loading("Deleting project...", { id: "project-delete" });
     let ok = false;
     let errorMsg = "";
     try {
       await streamProjectContent(accessToken, { action: "delete_project", project_id: projectId }, (event) => {
-        setDeleteLine((prev) => eventToLine(event) ?? prev);
+        showActivityStep(event, "project-delete");
         if (event.type !== "result") return;
         ok = event.statusCode === 200;
         errorMsg = event.details?.join(" ") || event.error || "";
       });
       if (ok) {
         dispatch(setProject(null));
-        toast.success("Project deleted.");
+        finishActivity("project-delete", true, "Project deleted.");
         router.push("/dashboard");
       } else {
-        toast.error(errorMsg || "Couldn't delete project.");
+        finishActivity("project-delete", false, errorMsg || "Couldn't delete project.");
       }
     } catch (err: unknown) {
       console.error("Failed to delete project:", err);
-      toast.error(err instanceof Error ? err.message : "Couldn't delete project.");
+      finishActivity("project-delete", false, err instanceof Error ? err.message : "Couldn't delete project.");
     } finally {
       setIsDeletingProject(false);
       setDeleteConfirmName("");
@@ -579,10 +568,6 @@ function ProjectDetailsWorkspace() {
               </button>
             </div>
 
-            <div className="mt-3">
-              <MiniTerminal line={descriptionLine} />
-            </div>
-
             <div className="flex flex-wrap gap-1.5 mt-4 pt-4" style={{ borderTop: `1px solid ${t.border}` }}>
               <span className="w-full text-[10px] font-semibold tracking-[0.06em] uppercase mb-0.5" style={{ color: t.fgFaint }}>
                 Good descriptions mention
@@ -742,9 +727,6 @@ function ProjectDetailsWorkspace() {
                 </svg>
                 Files are chunked and embedded automatically — no manual step needed.
               </p>
-              <div className="mt-3">
-                <MiniTerminal line={filesLine} />
-              </div>
             </div>
           </div>
         </div>
@@ -770,9 +752,6 @@ function ProjectDetailsWorkspace() {
             >
               {isDeletingProject ? "Deleting…" : "Delete project"}
             </button>
-          </div>
-          <div className="mt-4">
-            <MiniTerminal line={deleteLine} />
           </div>
         </div>
       </div>

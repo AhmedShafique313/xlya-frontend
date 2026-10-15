@@ -53,9 +53,9 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
       });
       toast.success("Verification code sent to your email.");
       router.push("/auth/verify-email");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Send verification code failed:", error);
-      toast.error(error?.message || "Failed to send verification code. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Failed to send verification code. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -67,7 +67,7 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
   const showGate = checked && emailVerified === false;
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       {showGate && (
         <div
           className="flex items-center justify-between gap-4 flex-wrap rounded-xl px-4 py-3 mb-5"
@@ -90,8 +90,8 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
         </div>
       )}
 
-      <div className="relative">
-        <div className={showGate ? "pointer-events-none select-none blur-sm opacity-60" : undefined}>
+      <div className="relative min-h-0 flex-1">
+        <div className={showGate ? "h-full pointer-events-none select-none blur-sm opacity-60" : "h-full"}>
           {children}
         </div>
 
@@ -107,6 +107,6 @@ export default function EmailVerificationGate({ children }: { children: ReactNod
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
